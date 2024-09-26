@@ -170,24 +170,27 @@ matchCase <- function(template, target)
 
 plotHairpin <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
 {
-	start.new <- dbStart
+  # browser()
+	bp <- dbStart:dbEnd
 	seq.new <- s2c(dbSeq)
-	bp <- start.new:(start.new + length(seq.new) - 1)
-	bp <- bp[bp > 0 & bp < calcLen(seq)]
-	hairpin.new <- rollapply(seq.new[bp], width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
-	hairpin <- rollapply(seq[bp], width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
-	if(any(seq[bp] %in% c('A','G','T','C')))
+	# bpRange <- c(max(1,start.new), min(length(seq), start.new + length(seq.new) - 1))
+	# bp <- bp[bp > 0 & bp < calcLen(seq)]
+	hairpin.new <- rollapply(seq.new, width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
+	hairpin.new[is.na(hairpin.new)] <- 0
+	validBp <- bp[bp > 0 & bp < length(seq)]
+	hairpin <- rollapply(seq[validBp], width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
+	hairpin[is.na(hairpin)] <- 0
+	if(any(seq %in% c('A','G','T','C')))
 	{
-	  codons <- bp[which(seq[bp] %in% c('A','G','T','C'))]
+	  codons <- which(seq %in% c('A','G','T','C'))
 	}
 	else
 	{
 	  codons <- c()
 	}
-	
 	if(length(codons) > 0)
 	{
-		plot(bp, hairpin,
+		plot(validBp, hairpin,
 			  type='l',
 			  # xlim=c(max(0, min(c(codons, starts, start.new))-25), min(length(seq), max(c(codons, ends, start.new+(length(hairpin.new)-1)))+25)),
 			  main='',
@@ -199,7 +202,7 @@ plotHairpin <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
 	}
 	else
 	{
-		plot(bp, hairpin,
+		plot(seq_along(), hairpin,
 			  type='l',
 			  # xlim=c(max(0, min(c(starts, start.new))-25), min(length(seq), max(c(ends, start.new+(length(hairpin.new)-1)))+25)),
 			  main='',
@@ -454,7 +457,7 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq, in
 					if(input[[paste0(controlId, 'NTs')]] != paste(newSeq, collapse=''))
 					{
 						# Update reactive value and UI for NTs
-						# print(paste("Updating ", controlId, "NTs1", sep=''))
+						print(paste("Updating ", controlId, "NTs1", sep=''))
 						vals$updatingNTCount <- vals$updatingNTCount + 1
 						vals[[paste0(controlId, 'NTs')]] <- paste(newSeq, collapse='')
 						updateTextInput(session, inputId=paste0(controlId, 'NTs'), value=paste(newSeq, collapse=''))
@@ -492,7 +495,7 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq, in
 					if(input[[paste0(controlId, 'NTs')]] != paste(newSeq, collapse=''))
 					{
 						# Update reactive value and UI for NTs
-						# print(paste("Updating ", controlId, "NTs2", sep=''))
+						print(paste("Updating ", controlId, "NTs2", sep=''))
 						vals$updatingNTCount <- vals$updatingNTCount + 1
 						vals[[paste0(controlId, 'NTs')]] <- paste(newSeq, collapse='')
 						updateTextInput(session, inputId=paste0(controlId, 'NTs'), value=paste(newSeq, collapse=''))
@@ -518,7 +521,7 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq, in
 					vals[[paste0(controlId, 'Len')]] <- primerLen
 					
 					# update linked controls
-					# print(paste("Updating ", controlId, "Start3", sep=''))
+					print(paste("Updating ", controlId, "StartAndLen3", sep=''))
 					updateNumericInput(session, inputId=paste0(controlId, 'Start'), value=primerStart)
 					# print(paste("Updating ", controlId, "Len3", sep=''))
 					updateNumericInput(session, inputId=paste0(controlId, 'Len'), value=primerLen)
@@ -660,7 +663,7 @@ server <- function(input, output, session) {
 	primerColors <- reactive({
 		c('#99ff99', # F3
 		  '#66ffff', # F2
-		  '#ffff66', # F1
+		  '#ffff66', # F1x
 		  '#cc99ff', # LFc
 		  '#ffff66', # B1c
 		  '#66ffff', # B2c
@@ -700,11 +703,11 @@ server <- function(input, output, session) {
 					 		 input$B3cNTs != '', 
 					 		 input$PNAFNTs != '',
 					 		 input$PNABcNTs != '')
-					 	vals$DBAll <- paste(c(F1c(), rep('t', input$polyT), mySeq()[getStart(input, 'F2'):(getEnd(input, 'B2c')-1)], rep('t', input$polyT), revC(B1c(), keepCase=T)), collapse='')
+					 	vals$DBAll <- paste(c(F1c(), rep('t', input$polyT), mySeq()[getStart(input, 'F2'):getEnd(input, 'B2c')], rep('t', input$polyT), revC(B1c(), keepCase=T)), collapse='')
 					 }
 	)
 	DBStart <- reactive(getStart(input, 'F2')-input$polyT-(getEnd(input, 'F1')-getStart(input, 'F1')+1))
-	DBEnd <- reactive(getEnd(input, 'B2c')+(getEnd(input, 'B1c')-getStart(input, 'B1c')+1))
+	DBEnd <- reactive(getEnd(input, 'B2c')+input$polyT+(getEnd(input, 'B1c')-getStart(input, 'B1c')+1))
 	
 	# PNAs
 	PNAF <- reactive({
@@ -859,9 +862,9 @@ server <- function(input, output, session) {
 																			 	  T)]]
 							})
 	
-	observeEvent(list(mySeq(), starts(), stops()), {
+	observeEvent(list(mySeq(), c(starts(), stops())), {
 		output$HairpinPlot <- renderPlot({
-			req(mySeq(), vals$DBAll)
+			req(mySeq(), vals$DBAll, vals$results2, calcLen(vals$DBAll) == (DBEnd()-DBStart()+1))
 			plotHairpin(mySeq(),
 							dbSeq = isolate(vals$DBAll),
 							dbStart = isolate(DBStart()),
@@ -872,7 +875,7 @@ server <- function(input, output, session) {
 		})
 		
 		output$GCPlot <- renderPlot({
-			req(mySeq(), vals$DBAll)
+			req(mySeq(), vals$DBAll, vals$results2, calcLen(vals$DBAll) == (DBEnd()-DBStart()+1))
 			plotGC(seq = mySeq(),
 					 dbSeq = isolate(vals$DBAll),
 					 dbStart = isolate(DBStart()),
@@ -883,7 +886,7 @@ server <- function(input, output, session) {
 		})
 		
 		output$EnergyPlot <- renderPlot({
-			req(mySeq(), vals$results2)
+			req(mySeq(), vals$results2) # 
 			ggplot(data=vals$results2[!is.na(value) & variable != 'KeyEndStability'], aes( x=Primer, y=value, fill=variable)) +
 				geom_col() +
 				geom_col(data=vals$results2[!is.na(value) & variable == 'KeyEndStability']) +
