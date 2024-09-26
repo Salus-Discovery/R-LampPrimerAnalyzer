@@ -29,6 +29,8 @@ library(seqinr)
 library(primer3)
 library(pwalign)
 library(marker)
+library(ggplot2)
+library(scales)
 
 
 fold <- function(x)
@@ -81,10 +83,11 @@ end_stability <- function(x, n=5, threePrimeEnd=TRUE)
 	}
 	else
 	{
-		c(x[1:n], rep('N',20))
+		x <- c(x[1:n], rep('N',20))
 		# x[(n+1):length(x)] <- 'N'
 	}
-	
+	# print(x)
+	# print(revC(x))
 	return(sig.digits(heterodimer(x, revC(x))$dg/1000, nSig=2))
 }
 
@@ -327,7 +330,7 @@ ui <- fluidPage(
 	useMarker(),
 	
 	# Application title
-	titlePanel("LAMP Target GC and Hairpin Analyzer"),
+	titlePanel("LAMP Primer Optimizer"),
 	
 	# Sidebar with a slider input for number of bins 
 	sidebarLayout(
@@ -358,7 +361,9 @@ ui <- fluidPage(
 		mainPanel(
 			plotOutput("GCPlot"),
 			plotOutput("HairpinPlot"),
-			uiOutput("tester"),
+			plotOutput("EnergyPlot"),
+			plotOutput("TmPlot"),
+			uiOutput("coloredSeq"),
 			fluidPage(fluidRow(column(2, downloadButton('download',"Download Table")),
 									 column(3, textInput('downloadName',NULL, value='Primer Set 1')),
 									 column(1, h4(".csv")),
@@ -548,7 +553,7 @@ server <- function(input, output, session) {
 		return(round(seq(1, length(mySeq())-20, length.out=8)))
 	})
 	
-	output$tester <- renderUI(mySeqHTML())
+	output$coloredSeq <- renderUI(mySeqHTML())
 	
 	output$F3 <- renderUI(renderPrimerControl(input, output, session, vals, 'F3', mySeq, initLocs=initLocs(), Loc=1))
 	output$F2 <- renderUI(renderPrimerControl(input, output, session, vals, 'F2', mySeq, initLocs=initLocs(), Loc=2))
@@ -718,6 +723,45 @@ server <- function(input, output, session) {
 		ret[, c('Tm','HpTm','HpDeltaG','HpStruct','HmdTm','HmdDeltaG','HmdStruct'):=getPrimerStats(Seq, .BY[[1]]), by='Primer']
 		ret[Primer %in% c('FIP','BIP'), c('HtdTm','HtdDeltaG','HtdStruct'):=getDimerStats(Seq, ifelse(.BY[[1]]=='FIP', BIP(), FIP())), by='Primer']
 		ret[Primer %in% c('FIP','BIP'), Tm:='NA']
+		ret[, KeyEndStability:=ifelse(Primer %in% c('F1c','B1c'), Stability5p, Stability3p)]
+		
+		# Data for energy plot
+		ret2 <- melt.data.table(data=ret, id.vars='Primer', measure.vars=c('KeyEndStability','HpDeltaG','HmdDeltaG','HtdDeltaG'))
+		ret2[, value:=as.numeric(value)]
+		ret2[value > 0, value:=0]
+		ret2[variable=='KeyEndStability', value:=-1*value]
+		ret2[, Primer:=factor(ret2$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','PNAF','PNAB'))]
+		
+		# Data for Tm plot
+		ret3 <- ret[Primer %!in% c('DBF','DBB','FIP','BIP'), c('Primer','Tm')]
+		ret3[, Tm:=as.numeric(Tm)]
+		primerColors <- data.table(Primer=c('F3',
+														'F2',
+														'F1c',
+														'LF',
+														'B1c',
+														'B2',
+														'B3',
+														'LB',
+														'PNAF',
+														'PNAB'),
+											plotColor=c('#99ff99', # F3
+															'#66ffff', # F2
+															'#ffff66', # F1
+															'#cc99ff', # LFc
+															'#ffff66', # B1c
+															'#66ffff', # B2c
+															'#99ff99', # B3c
+															'#cc99ff', # LB
+															'#ff3300', # PNAF
+															'#ff3300') # PNABc
+		)
+		setkey(ret3, Primer)
+		setkey(primerColors, Primer)
+		ret3 <- primerColors[ret3]
+		ret3[, Primer:=factor(ret3$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','PNAF','PNAB','FIP','BIP','DBF','DBB'))]
+		vals$results2 <- ret2
+		vals$results3 <- ret3
 		vals$results <- ret[Primer %in% c('F3','B3','F2','F1c','B2','B1c','LF','LB','PNAF','PNAB','FIP','BIP','DBF','DBB')[c(input$F3Check,
 																																									input$B3cCheck,
 																																									input$F2Check,
@@ -732,48 +776,51 @@ server <- function(input, output, session) {
 																																									input$B1cCheck && input$B2cCheck,
 																																									T,
 																																									T)]]
+		# browser()
+		# barData <- ret[, list()]
+		# vals$
+		
 	})
 	
-	observeEvent(list(mySeq(), starts(), stops()),
-					 {
-					 	output$HairpinPlot <- renderPlot({
-					 		req(mySeq(), vals$DBAll)
-					 		plotHairpin(mySeq(),
-					 						dbSeq = isolate(vals$DBAll),
-					 						dbStart = isolate(DBStart()),
-					 						dbEnd = isolate(DBEnd()),
-					 						starts = isolate(starts()), 
-					 						ends   = isolate(stops()),
-					 						colors = isolate(primerColors()))
-					 		# browser()
-					 		# my_marker <- marker$new("#text-to-mark")
-					 		# my_marker$unmark()
-					 		# if(input$F3Check){ my_marker$mark(input[[paste0("F3", "NTs")]], element=paste0("markF3")) }
-					 		# if(input$F2Check){ my_marker$mark(input[[paste0("F2", "NTs")]], element=paste0("markF2")) }
-					 		# if(input$LFcCheck){ my_marker$mark(input[[paste0("LFc", "NTs")]], element=paste0("markLFc")) }
-					 		# if(input$F1Check){ my_marker$mark(input[[paste0("F1", "NTs")]], element=paste0("markF1")) }
-					 		# if(input$B1cCheck){ my_marker$mark(input[[paste0("B1c", "NTs")]], element=paste0("markB1c")) }
-					 		# if(input$LBCheck){ my_marker$mark(input[[paste0("LB", "NTs")]], element=paste0("markLB")) }
-					 		# if(input$B2cCheck){ my_marker$mark(input[[paste0("B2c", "NTs")]], element=paste0("markB2c")) }
-					 		# if(input$B3cCheck){ my_marker$mark(input[[paste0("B3c", "NTs")]], element=paste0("markB3c")) }
-					 		# if(input$PNAFCheck){ my_marker$mark(input[[paste0("PNAF", "NTs")]], element=paste0("markPNAF")) }
-					 		# if(input$PNABcCheck){ my_marker$mark(input[[paste0("PNABc", "NTs")]], element=paste0("markPNABc")) }
-					 	})
-					 })
-	
-	observeEvent(list(mySeq(), starts(), stops()), 
-					 {
-					 	output$GCPlot <- renderPlot({
-					 		req(mySeq(), vals$DBAll)
-					 		plotGC(seq = mySeq(),
-					 				 dbSeq = isolate(vals$DBAll),
-					 				 dbStart = isolate(DBStart()),
-					 				 dbEnd = isolate(DBEnd()),
-					 				 starts = isolate(starts()), 
-					 				 ends   = isolate(stops()),
-					 				 colors = isolate(primerColors()))
-					 	})
-					 })
+	observeEvent(list(mySeq(), starts(), stops()), {
+		output$HairpinPlot <- renderPlot({
+			req(mySeq(), vals$DBAll)
+			plotHairpin(mySeq(),
+							dbSeq = isolate(vals$DBAll),
+							dbStart = isolate(DBStart()),
+							dbEnd = isolate(DBEnd()),
+							starts = isolate(starts()), 
+							ends   = isolate(stops()),
+							colors = isolate(primerColors()))
+		})
+		
+		output$GCPlot <- renderPlot({
+			req(mySeq(), vals$DBAll)
+			plotGC(seq = mySeq(),
+					 dbSeq = isolate(vals$DBAll),
+					 dbStart = isolate(DBStart()),
+					 dbEnd = isolate(DBEnd()),
+					 starts = isolate(starts()), 
+					 ends   = isolate(stops()),
+					 colors = isolate(primerColors()))
+		})
+		
+		output$EnergyPlot <- renderPlot({
+			ggplot(data=vals$results2[!is.na(value) & variable != 'KeyEndStability'], aes( x=Primer, y=value, fill=variable)) +
+				geom_col() +
+				geom_col(data=vals$results2[!is.na(value) & variable == 'KeyEndStability']) +
+				geom_hline(yintercept=c(4,-4)) +
+				labs(x='Sequence', y='Energy [kJ/mol]') + 
+				ylim(c(-15,10))
+		})
+		
+		output$TmPlot <- renderPlot({
+			ggplot(data=vals$results3, aes(x=Primer, y=Tm, fill=plotColor)) + 
+				geom_col() +
+				geom_hline(yintercept=c(50,60,70)) +
+				scale_y_continuous(limits=c(40,80),oob = rescale_none)
+		})
+	})
 	
 	output$ResultsTable <- renderTable({
 		req(vals$results)
