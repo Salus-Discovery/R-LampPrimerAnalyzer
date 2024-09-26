@@ -23,6 +23,7 @@
 
 
 library(shiny)
+library(shinythemes)
 library(data.table)
 library(zoo)
 library(grDevices)
@@ -403,6 +404,7 @@ getDimerStats <- function(x, y)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
+  theme = shinytheme("darkly"),
 	tags$head(
 		# Note the wrapping of the string in HTML()
 		tags$style(HTML(paste("
@@ -416,6 +418,16 @@ ui <- fluidPage(
       markB3c	{background-color: ", getColor('B3c'), ";	color: black;}
       markPNAF {background-color: ", getColor('PNAF'), ";	color: black;}
       markPNABc{background-color: ", getColor('PNABc'), ";	color: black;}
+      F3    {color: ", getColor('F3'), "}
+      F2    {color: ", getColor('F3'), "}
+      F1    {color: ", getColor('F3'), "}
+      LFc   {color: ", getColor('F3'), "}
+      B1c   {color: ", getColor('F3'), "}
+      B2c   {color: ", getColor('F3'), "}
+      B3c   {color: ", getColor('F3'), "}
+      LB    {color: ", getColor('F3'), "}
+      PNAF  {color: ", getColor('F3'), "}
+      PNABc {color: ", getColor('F3'), "}
 		", collapse='')))
 	),
 	tags$script("
@@ -458,24 +470,26 @@ ui <- fluidPage(
 		
 		# Show a plot of the generated distribution
 		mainPanel(
-			plotOutput("GCPlot"),
-			plotOutput("HairpinPlot"),
-			plotOutput("EnergyPlot"),
-			plotOutput("TmPlot"),
-			uiOutput("coloredSeq"),
-			fluidPage(fluidRow(column(2, downloadButton('download',"Download Table")),
-									 column(3, textInput('downloadName',NULL, value='Primer Set 1')),
-									 column(1, h4(".csv")),
-									 column(6, ))),
-			tableOutput("ResultsTable"),
-			
+		  wellPanel(style="background-color: white;", 
+		            plotOutput("GCPlot"),
+		            plotOutput("HairpinPlot"),
+		            plotOutput("EnergyPlot"),
+		            plotOutput("TmPlot"),
+		  ),
+		  hr(),
+		  uiOutput("coloredSeq"),
+		  fluidPage(fluidRow(column(2, downloadButton('download',"Download Table")),
+		                     column(3, textInput('downloadName',NULL, value='Primer Set 1')),
+		                     column(1, h4(".csv")),
+		                     column(6, ))),
+		  tableOutput("ResultsTable"),
 		)
 	)
 )
 
 getSeqFromStartAndLen <- function(start, len, mySeq)
 {
-	return(mySeq[start:(start+len-1)])
+  return(mySeq[start:(start+len-1)])
 }
 
 getStartAndLenFromSeq <- function(primer, mySeq)
@@ -488,7 +502,7 @@ renderPrimerControl <- function(input, output, session, vals, controlId, mySeq, 
 {
 	fluidPage({
 		fluidRow(
-			column(1, h4(controlId)),
+			column(1, HTML(paste(tags$h4(tags$span(style=paste("color: ", getColor(controlId), sep=''), controlId), sep='')))),
 			column(1, checkboxInput(paste0(controlId, 'Check'), '', value=T)), #value=grepl('[12]', controlId))),
 			column(2, numericInput(paste0(controlId, 'Start'), 'Start', value=ifelse(Loc > 0, initLocs[Loc], 1))),
 			column(2, numericInput(paste0(controlId, 'Len'), 'Length', value=initLen)),
