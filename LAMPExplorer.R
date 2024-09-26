@@ -527,7 +527,7 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq, in
 					if(input[[paste0(controlId, 'NTs')]] != paste(newSeq, collapse=''))
 					{
 						# Update reactive value and UI for NTs
-						print(paste("Updating ", controlId, "NTs1", sep=''))
+						# print(paste("Updating ", controlId, "NTs1", sep=''))
 						vals$updatingNTCount <- vals$updatingNTCount + 1
 						vals[[paste0(controlId, 'NTs')]] <- paste(newSeq, collapse='')
 						updateTextInput(session, inputId=paste0(controlId, 'NTs'), value=paste(newSeq, collapse=''))
@@ -565,7 +565,7 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq, in
 					if(input[[paste0(controlId, 'NTs')]] != paste(newSeq, collapse=''))
 					{
 						# Update reactive value and UI for NTs
-						print(paste("Updating ", controlId, "NTs2", sep=''))
+						# print(paste("Updating ", controlId, "NTs2", sep=''))
 						vals$updatingNTCount <- vals$updatingNTCount + 1
 						vals[[paste0(controlId, 'NTs')]] <- paste(newSeq, collapse='')
 						updateTextInput(session, inputId=paste0(controlId, 'NTs'), value=paste(newSeq, collapse=''))
@@ -591,9 +591,8 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq, in
 					vals[[paste0(controlId, 'Len')]] <- primerLen
 					
 					# update linked controls
-					print(paste("Updating ", controlId, "StartAndLen3", sep=''))
+					# print(paste("Updating ", controlId, "StartAndLen3", sep=''))
 					updateNumericInput(session, inputId=paste0(controlId, 'Start'), value=primerStart)
-					# print(paste("Updating ", controlId, "Len3", sep=''))
 					updateNumericInput(session, inputId=paste0(controlId, 'Len'), value=primerLen)
 				}
 			}
