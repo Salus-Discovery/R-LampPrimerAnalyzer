@@ -40,6 +40,10 @@ fold <- function(x)
 {
 	if(calcLen(x) > 47)
 	{
+	  if(any(grepl('[Nn]',x)))
+	  {
+	    browser()
+	  }
 		duh <- predictMfeStructure(XNAString(base = toUpper(paste(x, collapse=''))))
 		ret <- list(structure_found = T, 
 						temp = 0, 
@@ -167,12 +171,19 @@ matchCase <- function(template, target)
 plotHairpin <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
 {
 	start.new <- dbStart
-	# browser()
 	seq.new <- s2c(dbSeq)
-	hairpin.new <- rollapply(seq.new, width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
 	bp <- start.new:(start.new + length(seq.new) - 1)
+	bp <- bp[bp > 0 & bp < calcLen(seq)]
+	hairpin.new <- rollapply(seq.new[bp], width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
 	hairpin <- rollapply(seq[bp], width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
-	codons <- bp[which(seq[bp] %in% c('A','G','T','C'))]
+	if(any(seq[bp] %in% c('A','G','T','C')))
+	{
+	  codons <- bp[which(seq[bp] %in% c('A','G','T','C'))]
+	}
+	else
+	{
+	  codons <- c()
+	}
 	
 	if(length(codons) > 0)
 	{
@@ -205,18 +216,22 @@ plotHairpin <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
 
 plotGC <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
 {
-	# browser()
 	gc <- ifelse(seq %in% c("g","G","c","C"), 1, 0)
 	gc.frac <- rollapply(gc, width=20, FUN=mean, partial=T, align='center')
-	codons <- which(seq %in% c('A','G','T','C'))
-	
 	start.new <- dbStart
 	seq.new <- s2c(dbSeq)
 	gc.new <- ifelse(seq.new %in% c("g","G","c","C"), 1, 0)
 	gc.frac.new <- rollapply(gc.new, width=20, FUN=mean, partial=T, align='center')
 	bp <- start.new:(start.new + length(seq.new) - 1)
-	# hairpin <- rollapply(seq[bp], width=25, FUN=fold, partial=T, align='center')
-	codons <- bp[which(seq[bp] %in% c('A','G','T','C'))]
+	bp <- bp[bp > 0 & bp < calcLen(seq)]
+	if(any(seq[bp] %in% c('A','G','T','C')))
+	{
+	  codons <- bp[which(seq[bp] %in% c('A','G','T','C'))]
+	}
+	else
+	{
+	  codons <- c()
+	}
 	
 	if(length(codons) > 0)
 	{
@@ -409,9 +424,9 @@ renderPrimerControl <- function(input, output, session, vals, controlId, mySeq, 
 	})
 }
 
-setUpControlLinks <- function(input, output, session, vals, controlId, mySeq)
+setUpControlLinks <- function(input, output, session, vals, controlId, mySeq, initLocs)
 {
-	observeEvent(list(input[[paste0(controlId, 'Start')]], mySeq()), {
+	observeEvent(input[[paste0(controlId, 'Start')]], {
 		req(mySeq(), input[[paste0(controlId, 'Start')]])
 		if(is.null(vals[[paste0(controlId, 'Start')]]) || vals[[paste0(controlId, 'Start')]] != input[[paste0(controlId, 'Start')]]) # Then go ahead and update
 		{
@@ -449,7 +464,7 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq)
 		}
 	}, ignoreInit = F)
 	
-	observeEvent(list(input[[paste0(controlId, 'Len')]], mySeq()), {
+	observeEvent(input[[paste0(controlId, 'Len')]], {
 		req(mySeq(), input[[paste0(controlId, 'Len')]])
 		if(is.null(vals[[paste0(controlId, 'Len')]]) || vals[[paste0(controlId, 'Len')]] != input[[paste0(controlId, 'Len')]]) # Then go ahead and update
 		{
@@ -495,7 +510,6 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq)
 			if(length(newPrimer) > 0 && all(newPrimer %in% c('a','g','t','c','A','G','T','C')))
 			{
 				primerStart <- getStartAndLenFromSeq(toUpper(paste(newPrimer, collapse='')), toUpper(paste(mySeq(), collapse='')))
-				# browser()
 				primerLen <- length(newPrimer)
 				if(is.finite(primerStart) && primerStart > 0 && primerStart < (length(mySeq()) - (primerLen - 1)))
 				{
@@ -512,6 +526,34 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq)
 			}
 		}
 		vals$updatingNTCount <- vals$updatingNTCount - 1
+	}, ignoreInit = F)
+	
+	observeEvent(mySeq(), {
+	  req(mySeq(), input[[paste0(controlId, 'NTs')]], input[[paste0(controlId, 'Start')]], input[[paste0(controlId, 'Len')]])
+	  primerStart <- input[[paste0(controlId, 'Start')]]
+	  primerLen <- input[[paste0(controlId, 'Len')]]
+	  if(is.finite(primerStart) && is.finite(primerLen) && primerStart > 0 && primerStart < (length(mySeq()) - (primerLen - 1)))
+	  {
+	    # Then start and len are still legal and just update the sequence to match the new sequence
+	    newPrimer <- mySeq()[primerStart:(primerStart+primerLen-1)]
+	    vals$updatingNTCount <- vals$updatingNTCount + 1
+	    vals[[paste0(controlId, 'NTs')]] <- paste(newPrimer, collapse='')
+	    updateTextInput(session, inputId = paste0(controlId, 'NTs'), value=paste(newPrimer, collapse=''))
+	  }
+	  else 
+	  {
+	    # Then the start or len are illegal and we need to reinitialize all the controls.
+	    # We use the start and len inputs to trigger the update of the NTs box
+	    indexes <- c(2,3,4,0,7,6,5,0,0,0)
+	    names <- c('F3','F2','F1','LFc','B3c','B2c','B1c','LB','PNAF','PNABc')
+	    thisIndex <- indexes[which(controlId == names)]
+	    theStart <- ifelse(thisIndex > 0, initLocs()[thisIndex], 1)
+	    theEnd <- ifelse(length(mySeq()) >= (theStart + primerLen - 1), theStart + primerLen -1, length(mySeq()))
+	    theLen <- theEnd-theStart+1
+	    theSeq <- mySeq()[theStart:theEnd]
+	    updateNumericInput(session, inputId=paste0(controlId, 'Start'), value=theStart)
+	    updateNumericInput(session, inputId=paste0(controlId, 'Len'), value=theLen)
+	  }
 	}, ignoreInit = F)
 	
 	observeEvent(list(input[[paste0(controlId, 'Check')]], vals$DBAll), {
@@ -552,7 +594,8 @@ server <- function(input, output, session) {
 								  updatingStartOrLenCount=0)
 	
 	mySeq <- reactive({
-		s2c(input$Seq)
+		temp <- s2c(input$Seq)
+	  temp[temp %in% c('a','g','t','c','A','G','T','C')]
 	})
 	
 	mySeqHTML <- reactive({
@@ -566,27 +609,27 @@ server <- function(input, output, session) {
 	
 	output$coloredSeq <- renderUI(mySeqHTML())
 	
-	output$F3 <- renderUI(renderPrimerControl(input, output, session, vals, 'F3', mySeq, initLocs=initLocs(), Loc=2))
-	output$F2 <- renderUI(renderPrimerControl(input, output, session, vals, 'F2', mySeq, initLocs=initLocs(), Loc=3))
-	output$LFc <- renderUI(renderPrimerControl(input, output, session, vals, 'LFc', mySeq, initLocs=initLocs(), Loc=0))
-	output$F1 <- renderUI(renderPrimerControl(input, output, session, vals, 'F1', mySeq, initLocs=initLocs(), Loc=4))
-	output$B1c <- renderUI(renderPrimerControl(input, output, session, vals, 'B1c', mySeq, initLocs=initLocs(), Loc=5))
-	output$LB <- renderUI(renderPrimerControl(input, output, session, vals, 'LB', mySeq, initLocs=initLocs(), Loc=0))
-	output$B2c <- renderUI(renderPrimerControl(input, output, session, vals, 'B2c', mySeq, initLocs=initLocs(), Loc=6))
-	output$B3c <- renderUI(renderPrimerControl(input, output, session, vals, 'B3c', mySeq, initLocs=initLocs(), Loc=7))
-	output$PNAF <- renderUI(renderPrimerControl(input, output, session, vals, 'PNAF', mySeq, initLocs=initLocs(), Loc=0))
-	output$PNABc <- renderUI(renderPrimerControl(input, output, session, vals, 'PNABc', mySeq, initLocs=initLocs(), Loc=0))
+	output$F3 <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'F3', mySeq, initLocs=initLocs(), Loc=2)))
+	output$F2 <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'F2', mySeq, initLocs=initLocs(), Loc=3)))
+	output$LFc <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'LFc', mySeq, initLocs=initLocs(), Loc=0)))
+	output$F1 <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'F1', mySeq, initLocs=initLocs(), Loc=4)))
+	output$B1c <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'B1c', mySeq, initLocs=initLocs(), Loc=5)))
+	output$LB <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'LB', mySeq, initLocs=initLocs(), Loc=0)))
+	output$B2c <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'B2c', mySeq, initLocs=initLocs(), Loc=6)))
+	output$B3c <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'B3c', mySeq, initLocs=initLocs(), Loc=7)))
+	output$PNAF <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'PNAF', mySeq, initLocs=initLocs(), Loc=0)))
+	output$PNABc <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'PNABc', mySeq, initLocs=initLocs(), Loc=0)))
 	
-	setUpControlLinks(input, output, session, vals, 'F3', mySeq)
-	setUpControlLinks(input, output, session, vals, 'F2', mySeq)
-	setUpControlLinks(input, output, session, vals, 'LFc', mySeq)
-	setUpControlLinks(input, output, session, vals, 'F1', mySeq)
-	setUpControlLinks(input, output, session, vals, 'B1c', mySeq)
-	setUpControlLinks(input, output, session, vals, 'LB', mySeq)
-	setUpControlLinks(input, output, session, vals, 'B2c', mySeq)
-	setUpControlLinks(input, output, session, vals, 'B3c', mySeq)
-	setUpControlLinks(input, output, session, vals, 'PNAF', mySeq)
-	setUpControlLinks(input, output, session, vals, 'PNABc', mySeq)
+	setUpControlLinks(input, output, session, vals, 'F3', mySeq, initLocs)
+	setUpControlLinks(input, output, session, vals, 'F2', mySeq, initLocs)
+	setUpControlLinks(input, output, session, vals, 'LFc', mySeq, initLocs)
+	setUpControlLinks(input, output, session, vals, 'F1', mySeq, initLocs)
+	setUpControlLinks(input, output, session, vals, 'B1c', mySeq, initLocs)
+	setUpControlLinks(input, output, session, vals, 'LB', mySeq, initLocs)
+	setUpControlLinks(input, output, session, vals, 'B2c', mySeq, initLocs)
+	setUpControlLinks(input, output, session, vals, 'B3c', mySeq, initLocs)
+	setUpControlLinks(input, output, session, vals, 'PNAF', mySeq, initLocs)
+	setUpControlLinks(input, output, session, vals, 'PNABc', mySeq, initLocs)
 	
 	starts <- reactive({
 		c(getStart(input, 'F3'), 
@@ -665,7 +708,6 @@ server <- function(input, output, session) {
 	
 	# PNAs
 	PNAF <- reactive({
-		# browser()
 		# If the PNA straddles the start of F2
 		ifelse(getStart(input, 'F2') %in% c(getStart(input, 'PNAF'):getEnd(input, 'PNAF')),
 				 paste(
@@ -710,15 +752,27 @@ server <- function(input, output, session) {
 	DBF <- reactive(paste(c(rep('t', input$polyT), mySeq()[getStart(input, 'F2'):(getStart(input, 'F1')-1)]), collapse=''))
 	DBB <- reactive(paste(c(rep('t', input$polyT), mySeq()[getEnd(input, 'B2c'):(getEnd(input, 'B1c')-1)]), collapse=''))
 	
+	allLegal <- reactive({
+	  getEnd(input, 'F3') <= length(mySeq()) &&
+	    getEnd(input, 'F2') <= length(mySeq()) &&
+	    getEnd(input, 'F1') <= length(mySeq()) &&
+	    getEnd(input, 'LFc') <= length(mySeq()) &&
+	    getEnd(input, 'B3c') <= length(mySeq()) &&
+	    getEnd(input, 'B2c') <= length(mySeq()) &&
+	    getEnd(input, 'B1c') <= length(mySeq()) &&
+	    getEnd(input, 'LB') <= length(mySeq()) &&
+	    getEnd(input, 'PNAF') <= length(mySeq()) &&
+	    getEnd(input, 'PNABc') <= length(mySeq())
+	})
+	
 	observeEvent(list(input$Seq, input$F3NTs, input$F2NTs, input$F1NTs, input$LFcNTs, input$LBNTs, input$B3cNTs, input$B2cNTs, input$B1cNTs, input$PNAFNTs, input$PNABcNTs, input$polyT, input$stabilityN,
 							input$F3Check, input$F2Check, input$F1Check, input$LFcCheck, input$LBCheck, input$B3cCheck, input$B2cCheck, input$B1cCheck, input$PNAFCheck, input$PNABcCheck), {
 								
 								# toInclude <- c(input$F3Check, input$B3Check, T, T, T, T, T, T, input$LFcCheck, input$LBCheck, input$PNACheck, input$PNAcCheck, T, T)
-								req(mySeq(), input$F3NTs != '', input$F2NTs != '', input$LFcNTs != '', input$F1NTs != '', input$B1cNTs != '', input$LBNTs != '', input$B2cNTs != '', input$B3cNTs != '', input$PNAFNTs != '', input$PNABcNTs != '')
+								req(mySeq(), allLegal(), input$F3NTs != '', input$F2NTs != '', input$LFcNTs != '', input$F1NTs != '', input$B1cNTs != '', input$LBNTs != '', input$B2cNTs != '', input$B3cNTs != '', input$PNAFNTs != '', input$PNABcNTs != '')
 								ret <- data.table(Primer=c('F3','B3','F2','F1c','B2','B1c','FIP','BIP','LF','LB','PNAF','PNAB','DBF','DBB'),
 														Seq=c(F3(), B3(), F2(), F1c(), B2(), B1c(), FIP(), BIP(), LF(), LB(), PNAF(), PNAB(), DBF(), DBB()),
 														Sense=c('Sense','Antisense','Sense','Antisense','Sense','Antisense','NA','NA','Antisense','Sense','Sense','Antisense','Sense','Sense'))
-								# browser()
 								ret[, Stability3p:=end_stability(Seq, n=input$stabilityN, threePrimeEnd=T), by='Primer']
 								ret[, Stability5p:=end_stability(Seq, n=input$stabilityN, threePrimeEnd=F), by='Primer']
 								ret[, Start5p:='NA']
@@ -829,7 +883,7 @@ server <- function(input, output, session) {
 		})
 		
 		output$EnergyPlot <- renderPlot({
-			req(vals$results2)
+			req(mySeq(), vals$results2)
 			ggplot(data=vals$results2[!is.na(value) & variable != 'KeyEndStability'], aes( x=Primer, y=value, fill=variable)) +
 				geom_col() +
 				geom_col(data=vals$results2[!is.na(value) & variable == 'KeyEndStability']) +
@@ -839,7 +893,7 @@ server <- function(input, output, session) {
 		})
 		
 		output$TmPlot <- renderPlot({
-			req(vals$results3)
+			req(mySeq(), vals$results3)
 			ggplot(data=vals$results3, aes(x=Primer, y=Tm, fill=plotColor)) + 
 				geom_col() +
 				geom_hline(yintercept=c(50,60,70)) +
@@ -857,7 +911,7 @@ server <- function(input, output, session) {
 	})
 	
 	output$ResultsTable <- renderTable({
-		req(vals$results)
+		req(mySeq(), vals$results)
 		return(vals$results)
 	})
 	
