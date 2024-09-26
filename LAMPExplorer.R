@@ -177,8 +177,9 @@ plotHairpin <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
 	# bp <- bp[bp > 0 & bp < calcLen(seq)]
 	hairpin.new <- rollapply(seq.new, width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
 	hairpin.new[is.na(hairpin.new)] <- 0
-	validBp <- bp[bp > 0 & bp < length(seq)]
-	hairpin <- rollapply(seq[validBp], width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
+	# validBp <- bp[bp > 0 & bp < length(seq)]
+	hairpin <- rollapply(seq, width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
+	# hairpin <- rollapply(seq[validBp], width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
 	hairpin[is.na(hairpin)] <- 0
 	if(any(seq %in% c('A','G','T','C')))
 	{
@@ -190,15 +191,16 @@ plotHairpin <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
 	}
 	if(length(codons) > 0)
 	{
-		plot(validBp, hairpin,
-			  type='l',
-			  # xlim=c(max(0, min(c(codons, starts, start.new))-25), min(length(seq), max(c(codons, ends, start.new+(length(hairpin.new)-1)))+25)),
-			  main='',
-			  ylab='Hairpin Energy [kJ/mol]',
-			  xlab='Position [bp]',
-			  cex.lab=1.5)
-		lines(x=bp, y=hairpin.new, col='gray', lwd=4)
-		abline(v=codons, h=0.6, col=setColor('red', 0.2))
+	  # plot(validBp, hairpin,
+	  plot(1:calcLen(seq), hairpin,
+	       type='l',
+	       # xlim=c(max(0, min(c(codons, starts, start.new))-25), min(length(seq), max(c(codons, ends, start.new+(length(hairpin.new)-1)))+25)),
+	       main='',
+	       ylab='Hairpin Energy [kJ/mol]',
+	       xlab='Position [bp]',
+	       cex.lab=1.5)
+	  lines(x=bp, y=hairpin.new, col='gray', lwd=4)
+	  abline(v=codons, h=0.6, col=setColor('red', 0.2))
 	}
 	else
 	{
