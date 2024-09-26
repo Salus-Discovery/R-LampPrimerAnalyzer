@@ -835,7 +835,7 @@ server <- function(input, output, session) {
 				geom_col(data=vals$results2[!is.na(value) & variable == 'KeyEndStability']) +
 				geom_hline(yintercept=c(4,-4)) +
 				labs(x='Sequence', y='Energy [kJ/mol]') +
-				scale_y_continuous(limits=c(-15,10),oob = rescale_none)
+				scale_y_continuous(limits=c(-20,10),oob = rescale_none)
 		})
 		
 		output$TmPlot <- renderPlot({
