@@ -39,9 +39,9 @@ fold <- function(x)
 	{
 		duh <- predictMfeStructure(XNAString(base = toUpper(paste(x, collapse=''))))
 		ret <- list(structure_found = T, 
-					  temp = 0, 
-					  dg = duh$mfe,
-					  structure = duh$structure)
+						temp = 0, 
+						dg = duh$mfe,
+						structure = duh$structure)
 	}
 	else
 	{
@@ -327,6 +327,12 @@ ui <- fluidPage(
       markPNABc{background-color: #ff3300;	color: black;}
 		"))
 	),
+	tags$script("
+            Shiny.addCustomMessageHandler('txt', function (txt) {
+                navigator.clipboard.writeText(txt);
+            });
+        "), # this is new
+	
 	useMarker(),
 	
 	# Application title
@@ -338,21 +344,23 @@ ui <- fluidPage(
 			h4("Target Sequence:"),
 			tags$textarea(id="Seq", rows=10, cols=60, 
 							  'atcgaccacttcggcaaccgccgcctgcgtacggtcggcgagctgatccaaaaccagatccgggtcggcatgtcgcggatggagcgggtggtccgggagcggatgaccacccaggacgtggaggcgatcacaccgcagacgttgatcaacatccggccggtggtcgccgcgatcaaggagttcttcggcaccagccagctgagccaattcatgGACcagaacaacccgctgtcggggttgaccCACaagcgccgactgTCGgcgctggggcccggcggtctgtcacgtgagcgtgccgggctggaggtccgcgacgtgcacccgtcgcactacggccggatgtgcccgatcgaaacccctgaggggcccaacatcggtctgatcggctcgctgtcggtgtacgcgcgggtcaacccgttcgggttcatcgaaacgccgtaccgcaaggtggtcgacggcgtggttagcgacgagatcgtgtacctgaccgccgacgagga'
-							  ),
+			),
 			hr(),
 			fluidPage(fluidRow(column(6, numericInput("polyT", "FIP/BIP PolyT-Spacer Length:", 3)),
-									 column(6, numericInput("stabilityN", "End Stability Bp's:", 5)))),
+									 column(6, numericInput("stabilityN", "End Stability Bp's:", 5))),
+						 textInput('revCTool', 'Rev. Compl. Tool', placeholder='Auto-copy RevC to Clipboard'),
+						 textOutput('revCOutput')),
 			hr(),
 			# textOutput("Warnings"),
 			# actionButton("Update", "Update Plots"),
 			uiOutput("F3"),
 			uiOutput("F2"),
-			uiOutput("LFc"),
 			uiOutput("F1"),
 			uiOutput("B1c"),
-			uiOutput("LB"),
 			uiOutput("B2c"),
 			uiOutput("B3c"),
+			uiOutput("LFc"),
+			uiOutput("LB"),
 			uiOutput("PNAF"),
 			uiOutput("PNABc")
 		),
@@ -391,7 +399,7 @@ renderPrimerControl <- function(input, output, session, vals, controlId, mySeq, 
 		fluidRow(
 			column(1, h4(controlId)),
 			column(1, checkboxInput(paste0(controlId, 'Check'), '', value=T)), #value=grepl('[12]', controlId))),
-			column(2, numericInput(paste0(controlId, 'Start'), 'Start', value=initLocs[Loc])),
+			column(2, numericInput(paste0(controlId, 'Start'), 'Start', value=ifelse(Loc > 0, initLocs[Loc], 1))),
 			column(2, numericInput(paste0(controlId, 'Len'), 'Length', value=initLen)),
 			column(6, textInput(paste0(controlId, 'NTs'), 'Seq', value=initNTs))
 		)
@@ -555,16 +563,17 @@ server <- function(input, output, session) {
 	
 	output$coloredSeq <- renderUI(mySeqHTML())
 	
-	output$F3 <- renderUI(renderPrimerControl(input, output, session, vals, 'F3', mySeq, initLocs=initLocs(), Loc=1))
-	output$F2 <- renderUI(renderPrimerControl(input, output, session, vals, 'F2', mySeq, initLocs=initLocs(), Loc=2))
-	output$LFc <- renderUI(renderPrimerControl(input, output, session, vals, 'LFc', mySeq, initLocs=initLocs(), Loc=3))
+	output$F3 <- renderUI(renderPrimerControl(input, output, session, vals, 'F3', mySeq, initLocs=initLocs(), Loc=2))
+	output$F2 <- renderUI(renderPrimerControl(input, output, session, vals, 'F2', mySeq, initLocs=initLocs(), Loc=3))
+	output$LFc <- renderUI(renderPrimerControl(input, output, session, vals, 'LFc', mySeq, initLocs=initLocs(), Loc=0))
 	output$F1 <- renderUI(renderPrimerControl(input, output, session, vals, 'F1', mySeq, initLocs=initLocs(), Loc=4))
 	output$B1c <- renderUI(renderPrimerControl(input, output, session, vals, 'B1c', mySeq, initLocs=initLocs(), Loc=5))
-	output$LB <- renderUI(renderPrimerControl(input, output, session, vals, 'LB', mySeq, initLocs=initLocs(), Loc=6))
-	output$B2c <- renderUI(renderPrimerControl(input, output, session, vals, 'B2c', mySeq, initLocs=initLocs(), Loc=7))
-	output$B3c <- renderUI(renderPrimerControl(input, output, session, vals, 'B3c', mySeq, initLocs=initLocs(), Loc=8))
-	output$PNAF <- renderUI(renderPrimerControl(input, output, session, vals, 'PNAF', mySeq, initLocs=initLocs(), Loc=3))
-	output$PNABc <- renderUI(renderPrimerControl(input, output, session, vals, 'PNABc', mySeq, initLocs=initLocs(), Loc=6))
+	output$LB <- renderUI(renderPrimerControl(input, output, session, vals, 'LB', mySeq, initLocs=initLocs(), Loc=0))
+	output$B2c <- renderUI(renderPrimerControl(input, output, session, vals, 'B2c', mySeq, initLocs=initLocs(), Loc=6))
+	output$B3c <- renderUI(renderPrimerControl(input, output, session, vals, 'B3c', mySeq, initLocs=initLocs(), Loc=7))
+	output$PNAF <- renderUI(renderPrimerControl(input, output, session, vals, 'PNAF', mySeq, initLocs=initLocs(), Loc=0))
+	output$PNABc <- renderUI(renderPrimerControl(input, output, session, vals, 'PNABc', mySeq, initLocs=initLocs(), Loc=0))
+	
 	setUpControlLinks(input, output, session, vals, 'F3', mySeq)
 	setUpControlLinks(input, output, session, vals, 'F2', mySeq)
 	setUpControlLinks(input, output, session, vals, 'LFc', mySeq)
@@ -645,7 +654,7 @@ server <- function(input, output, session) {
 					 		 input$B3cNTs != '', 
 					 		 input$PNAFNTs != '',
 					 		 input$PNABcNTs != '')
-					 	vals$DBAll <- paste(c(F1c(), rep('t', input$polyT), mySeq()[getStart(input, 'F2'):(getEnd(input, 'B2c')-1)], rep('t', input$polyT), B2()), collapse='')
+					 	vals$DBAll <- paste(c(F1c(), rep('t', input$polyT), mySeq()[getStart(input, 'F2'):(getEnd(input, 'B2c')-1)], rep('t', input$polyT), revC(B1c(), keepCase=T)), collapse='')
 					 }
 	)
 	DBStart <- reactive(getStart(input, 'F2')-input$polyT-(getEnd(input, 'F1')-getStart(input, 'F1')+1))
@@ -700,87 +709,98 @@ server <- function(input, output, session) {
 	
 	observeEvent(list(input$Seq, input$F3NTs, input$F2NTs, input$F1NTs, input$LFcNTs, input$LBNTs, input$B3cNTs, input$B2cNTs, input$B1cNTs, input$PNAFNTs, input$PNABcNTs, input$polyT, input$stabilityN,
 							input$F3Check, input$F2Check, input$F1Check, input$LFcCheck, input$LBCheck, input$B3cCheck, input$B2cCheck, input$B1cCheck, input$PNAFCheck, input$PNABcCheck), {
-		# toInclude <- c(input$F3Check, input$B3Check, T, T, T, T, T, T, input$LFcCheck, input$LBCheck, input$PNACheck, input$PNAcCheck, T, T)
-		req(mySeq(), input$F3NTs != '', input$F2NTs != '', input$LFcNTs != '', input$F1NTs != '', input$B1cNTs != '', input$LBNTs != '', input$B2cNTs != '', input$B3cNTs != '', input$PNAFNTs != '', input$PNABcNTs != '')
-		ret <- data.table(Primer=c('F3','B3','F2','F1c','B2','B1c','FIP','BIP','LF','LB','PNAF','PNAB','DBF','DBB'),
-								Seq=c(F3(), B3(), F2(), F1c(), B2(), B1c(), FIP(), BIP(), LF(), LB(), PNAF(), PNAB(), DBF(), DBB()),
-								Sense=c('Sense','Antisense','Sense','Antisense','Sense','Antisense','NA','NA','Antisense','Sense','Sense','Antisense','Sense','Sense'))
-		# browser()
-		ret[, Stability3p:=end_stability(Seq, n=input$stabilityN, threePrimeEnd=T), by='Primer']
-		ret[, Stability5p:=end_stability(Seq, n=input$stabilityN, threePrimeEnd=F), by='Primer']
-		ret[, Start5p:='NA']
-		ret[Primer == 'F3', Start5p:=getStart(input, 'F3')]
-		ret[Primer == 'B3', Start5p:=getEnd(input, 'B3c')]
-		ret[Primer == 'F2', Start5p:=getStart(input, 'F2')]
-		ret[Primer == 'F1c', Start5p:=getEnd(input, 'F1')]
-		ret[Primer == 'B2', Start5p:=getEnd(input, 'B2c')]
-		ret[Primer == 'B1c', Start5p:=getStart(input, 'B1c')]
-		ret[Primer == 'LF', Start5p:=getEnd(input, 'LFc')]
-		ret[Primer == 'LB', Start5p:=getStart(input, 'LB')]
-		ret[Primer == 'PNAF', Start5p:=getStart(input, 'PNAF')]
-		ret[Primer == 'PNAB', Start5p:=getEnd(input, 'PNABc')]
-		ret[, Len:=length(s2c(Seq)), by='Primer']
-		ret[, c('Tm','HpTm','HpDeltaG','HpStruct','HmdTm','HmdDeltaG','HmdStruct'):=getPrimerStats(Seq, .BY[[1]]), by='Primer']
-		ret[Primer %in% c('FIP','BIP'), c('HtdTm','HtdDeltaG','HtdStruct'):=getDimerStats(Seq, ifelse(.BY[[1]]=='FIP', BIP(), FIP())), by='Primer']
-		ret[Primer %in% c('FIP','BIP'), Tm:='NA']
-		ret[, KeyEndStability:=ifelse(Primer %in% c('F1c','B1c'), Stability5p, Stability3p)]
-		
-		# Data for energy plot
-		ret2 <- melt.data.table(data=ret, id.vars='Primer', measure.vars=c('KeyEndStability','HpDeltaG','HmdDeltaG','HtdDeltaG'))
-		ret2[, value:=suppressWarnings(as.numeric(value))]
-		ret2[value > 0, value:=0]
-		ret2[variable=='KeyEndStability', value:=-1*value]
-		ret2[, Primer:=factor(ret2$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','FIP','BIP','PNAF','PNAB','DBF','DBB'))]
-		
-		# Data for Tm plot
-		ret3 <- ret[Primer %!in% c('DBF','DBB','FIP','BIP'), c('Primer','Tm')]
-		ret3[, Tm:=suppressWarnings(as.numeric(Tm))]
-		primerColors <- data.table(Primer=c('F3',
-														'F2',
-														'F1c',
-														'LF',
-														'B1c',
-														'B2',
-														'B3',
-														'LB',
-														'PNAF',
-														'PNAB'),
-											plotColor=c('#99ff99', # F3
-															'#66ffff', # F2
-															'#ffff66', # F1
-															'#cc99ff', # LFc
-															'#ffff66', # B1c
-															'#66ffff', # B2c
-															'#99ff99', # B3c
-															'#cc99ff', # LB
-															'#ff3300', # PNAF
-															'#ff3300') # PNABc
-		)
-		setkey(ret3, Primer)
-		setkey(primerColors, Primer)
-		ret3 <- primerColors[ret3]
-		ret3[, Primer:=factor(ret3$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','PNAF','PNAB','FIP','BIP','DBF','DBB'))]
-		vals$results2 <- ret2
-		vals$results3 <- ret3
-		vals$results <- ret[Primer %in% c('F3','B3','F2','F1c','B2','B1c','LF','LB','PNAF','PNAB','FIP','BIP','DBF','DBB')[c(input$F3Check,
-																																									input$B3cCheck,
-																																									input$F2Check,
-																																									input$F1Check,
-																																									input$B2cCheck,
-																																									input$B1cCheck,
-																																									input$LFcCheck,
-																																									input$LBCheck,
-																																									input$PNAFCheck,
-																																									input$PNABcCheck,
-																																									input$F1Check && input$F2Check,
-																																									input$B1cCheck && input$B2cCheck,
-																																									T,
-																																									T)]]
-		# browser()
-		# barData <- ret[, list()]
-		# vals$
-		
-	})
+								
+								# toInclude <- c(input$F3Check, input$B3Check, T, T, T, T, T, T, input$LFcCheck, input$LBCheck, input$PNACheck, input$PNAcCheck, T, T)
+								req(mySeq(), input$F3NTs != '', input$F2NTs != '', input$LFcNTs != '', input$F1NTs != '', input$B1cNTs != '', input$LBNTs != '', input$B2cNTs != '', input$B3cNTs != '', input$PNAFNTs != '', input$PNABcNTs != '')
+								ret <- data.table(Primer=c('F3','B3','F2','F1c','B2','B1c','FIP','BIP','LF','LB','PNAF','PNAB','DBF','DBB'),
+														Seq=c(F3(), B3(), F2(), F1c(), B2(), B1c(), FIP(), BIP(), LF(), LB(), PNAF(), PNAB(), DBF(), DBB()),
+														Sense=c('Sense','Antisense','Sense','Antisense','Sense','Antisense','NA','NA','Antisense','Sense','Sense','Antisense','Sense','Sense'))
+								# browser()
+								ret[, Stability3p:=end_stability(Seq, n=input$stabilityN, threePrimeEnd=T), by='Primer']
+								ret[, Stability5p:=end_stability(Seq, n=input$stabilityN, threePrimeEnd=F), by='Primer']
+								ret[, Start5p:='NA']
+								ret[Primer == 'F3', Start5p:=getStart(input, 'F3')]
+								ret[Primer == 'B3', Start5p:=getEnd(input, 'B3c')]
+								ret[Primer == 'F2', Start5p:=getStart(input, 'F2')]
+								ret[Primer == 'F1c', Start5p:=getEnd(input, 'F1')]
+								ret[Primer == 'B2', Start5p:=getEnd(input, 'B2c')]
+								ret[Primer == 'B1c', Start5p:=getStart(input, 'B1c')]
+								ret[Primer == 'LF', Start5p:=getEnd(input, 'LFc')]
+								ret[Primer == 'LB', Start5p:=getStart(input, 'LB')]
+								ret[Primer == 'PNAF', Start5p:=getStart(input, 'PNAF')]
+								ret[Primer == 'PNAB', Start5p:=getEnd(input, 'PNABc')]
+								ret[, Len:=length(s2c(Seq)), by='Primer']
+								ret[, c('Tm','HpTm','HpDeltaG','HpStruct','HmdTm','HmdDeltaG','HmdStruct'):=getPrimerStats(Seq, .BY[[1]]), by='Primer']
+								ret[Primer %in% c('FIP','BIP'), c('HtdTm','HtdDeltaG','HtdStruct'):=getDimerStats(Seq, ifelse(.BY[[1]]=='FIP', BIP(), FIP())), by='Primer']
+								ret[Primer %in% c('FIP','BIP'), Tm:='NA']
+								ret[, KeyEndStability:=ifelse(Primer %in% c('F1c','B1c'), Stability5p, Stability3p)]
+								
+								# Data for energy plot
+								ret2 <- melt.data.table(data=ret, id.vars='Primer', measure.vars=c('KeyEndStability','HpDeltaG','HmdDeltaG','HtdDeltaG'))
+								ret2[, value:=suppressWarnings(as.numeric(value))]
+								ret2[value > 0, value:=0]
+								ret2[variable=='KeyEndStability', value:=-1*value]
+								ret2[, Primer:=factor(ret2$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','FIP','BIP','PNAF','PNAB','DBF','DBB'))]
+								
+								# Data for Tm plot
+								ret3 <- ret[Primer %!in% c('DBF','DBB','FIP','BIP'), c('Primer','Tm')]
+								ret3[, Tm:=suppressWarnings(as.numeric(Tm))]
+								primerColors <- data.table(Primer=c('F3',
+																				'F2',
+																				'F1c',
+																				'LF',
+																				'B1c',
+																				'B2',
+																				'B3',
+																				'LB',
+																				'PNAF',
+																				'PNAB'),
+																	plotColor=c('#99ff99', # F3
+																					'#66ffff', # F2
+																					'#ffff66', # F1
+																					'#cc99ff', # LFc
+																					'#ffff66', # B1c
+																					'#66ffff', # B2c
+																					'#99ff99', # B3c
+																					'#cc99ff', # LB
+																					'#ff3300', # PNAF
+																					'#ff3300') # PNABc
+								)
+								setkey(ret3, Primer)
+								setkey(primerColors, Primer)
+								ret3 <- primerColors[ret3]
+								ret3[, Primer:=factor(ret3$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','PNAF','PNAB','FIP','BIP','DBF','DBB'))]
+								vals$results2 <- ret2
+								vals$results3 <- ret3
+								vals$results <- ret[Primer %in% c('F3',
+																			 'B3',
+																			 'F2',
+																			 'F1c',
+																			 'B2',
+																			 'B1c',
+																			 'LF',
+																			 'LB',
+																			 'PNAF',
+																			 'PNAB',
+																			 'FIP',
+																			 'BIP',
+																			 'DBF',
+																			 'DBB')[
+																			 	c(input$F3Check,
+																			 	  input$B3cCheck,
+																			 	  input$F2Check,
+																			 	  input$F1Check,
+																			 	  input$B2cCheck,
+																			 	  input$B1cCheck,
+																			 	  input$LFcCheck,
+																			 	  input$LBCheck,
+																			 	  input$PNAFCheck,
+																			 	  input$PNABcCheck,
+																			 	  input$F1Check && input$F2Check,
+																			 	  input$B1cCheck && input$B2cCheck,
+																			 	  T,
+																			 	  T)]]
+							})
 	
 	observeEvent(list(mySeq(), starts(), stops()), {
 		output$HairpinPlot <- renderPlot({
@@ -821,6 +841,15 @@ server <- function(input, output, session) {
 				geom_col() +
 				geom_hline(yintercept=c(50,60,70)) +
 				scale_y_continuous(limits=c(40,80),oob = rescale_none)
+		})
+	})
+	
+	observeEvent(input$revCTool,{
+		req(input$revCTool != '')
+		output$revCOutput <- renderText({
+			revc <- revC(input$revCTool, keepCase=T)
+			session$sendCustomMessage("txt", revc)
+			paste('COPIED:', revc)
 		})
 	})
 	
