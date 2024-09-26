@@ -727,14 +727,14 @@ server <- function(input, output, session) {
 		
 		# Data for energy plot
 		ret2 <- melt.data.table(data=ret, id.vars='Primer', measure.vars=c('KeyEndStability','HpDeltaG','HmdDeltaG','HtdDeltaG'))
-		ret2[, value:=as.numeric(value)]
+		ret2[, value:=suppressWarnings(as.numeric(value))]
 		ret2[value > 0, value:=0]
 		ret2[variable=='KeyEndStability', value:=-1*value]
-		ret2[, Primer:=factor(ret2$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','PNAF','PNAB'))]
+		ret2[, Primer:=factor(ret2$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','FIP','BIP','PNAF','PNAB','DBF','DBB'))]
 		
 		# Data for Tm plot
 		ret3 <- ret[Primer %!in% c('DBF','DBB','FIP','BIP'), c('Primer','Tm')]
-		ret3[, Tm:=as.numeric(Tm)]
+		ret3[, Tm:=suppressWarnings(as.numeric(Tm))]
 		primerColors <- data.table(Primer=c('F3',
 														'F2',
 														'F1c',
@@ -806,15 +806,17 @@ server <- function(input, output, session) {
 		})
 		
 		output$EnergyPlot <- renderPlot({
+			req(vals$results2)
 			ggplot(data=vals$results2[!is.na(value) & variable != 'KeyEndStability'], aes( x=Primer, y=value, fill=variable)) +
 				geom_col() +
 				geom_col(data=vals$results2[!is.na(value) & variable == 'KeyEndStability']) +
 				geom_hline(yintercept=c(4,-4)) +
-				labs(x='Sequence', y='Energy [kJ/mol]') + 
-				ylim(c(-15,10))
+				labs(x='Sequence', y='Energy [kJ/mol]') +
+				scale_y_continuous(limits=c(-15,10),oob = rescale_none)
 		})
 		
 		output$TmPlot <- renderPlot({
+			req(vals$results3)
 			ggplot(data=vals$results3, aes(x=Primer, y=Tm, fill=plotColor)) + 
 				geom_col() +
 				geom_hline(yintercept=c(50,60,70)) +
