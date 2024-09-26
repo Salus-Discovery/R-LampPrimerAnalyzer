@@ -402,7 +402,7 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq)
 			# Reset if the new start is less than 1
 			if(input[[paste0(controlId, 'Start')]] <= 0)
 			{
-				print(paste("Updating ", controlId, "Start1", sep=''))
+				# print(paste("Updating ", controlId, "Start1", sep=''))
 				updateNumericInput(session, inputId=paste0(controlId, 'Start'), value=1)
 			}
 			else
@@ -410,7 +410,7 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq)
 				# Reset the start if the new Start and Len are too big.
 				if(input[[paste0(controlId, 'Start')]] > (length(mySeq()) - (input[[paste0(controlId, 'Len')]] - 1)))
 				{
-					print(paste("Updating ", controlId, "Start2", sep=''))
+					# print(paste("Updating ", controlId, "Start2", sep=''))
 					updateNumericInput(session, inputId=paste0(controlId, 'Start'), value=(length(mySeq()) - (input[[paste0(controlId, 'Len')]] - 1)))
 				}
 				else
@@ -423,11 +423,10 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq)
 					if(input[[paste0(controlId, 'NTs')]] != paste(newSeq, collapse=''))
 					{
 						# Update reactive value and UI for NTs
-						print(paste("Updating ", controlId, "NTs1", sep=''))
+						# print(paste("Updating ", controlId, "NTs1", sep=''))
 						vals$updatingNTCount <- vals$updatingNTCount + 1
 						vals[[paste0(controlId, 'NTs')]] <- paste(newSeq, collapse='')
 						updateTextInput(session, inputId=paste0(controlId, 'NTs'), value=paste(newSeq, collapse=''))
-						# vals$updatingNT <- vals$updatingNT - 1
 					}
 				}
 			}
@@ -441,7 +440,7 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq)
 			# Reset if the new start is less than 1
 			if(input[[paste0(controlId, 'Len')]] <= 0)
 			{
-				print(paste("Updating ", controlId, "Len1", sep=''))
+				# print(paste("Updating ", controlId, "Len1", sep=''))
 				updateNumericInput(session, inputId=paste0(controlId, 'Len'), value=1)
 			}
 			else
@@ -449,7 +448,7 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq)
 				# Reset the start if the new Start and Len are too big.
 				if(input[[paste0(controlId, 'Start')]] > (length(mySeq()) - (input[[paste0(controlId, 'Len')]] - 1)))
 				{
-					print(paste("Updating ", controlId, "Len2", sep=''))
+					# print(paste("Updating ", controlId, "Len2", sep=''))
 					updateNumericInput(session, inputId=paste0(controlId, 'Len'), value=(length(mySeq()) - (input[[paste0(controlId, 'Start')]] + 1)))
 				}
 				else
@@ -462,7 +461,7 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq)
 					if(input[[paste0(controlId, 'NTs')]] != paste(newSeq, collapse=''))
 					{
 						# Update reactive value and UI for NTs
-						print(paste("Updating ", controlId, "NTs2", sep=''))
+						# print(paste("Updating ", controlId, "NTs2", sep=''))
 						vals$updatingNTCount <- vals$updatingNTCount + 1
 						vals[[paste0(controlId, 'NTs')]] <- paste(newSeq, collapse='')
 						updateTextInput(session, inputId=paste0(controlId, 'NTs'), value=paste(newSeq, collapse=''))
@@ -489,9 +488,9 @@ setUpControlLinks <- function(input, output, session, vals, controlId, mySeq)
 					vals[[paste0(controlId, 'Len')]] <- primerLen
 					
 					# update linked controls
-					print(paste("Updating ", controlId, "Start3", sep=''))
+					# print(paste("Updating ", controlId, "Start3", sep=''))
 					updateNumericInput(session, inputId=paste0(controlId, 'Start'), value=primerStart)
-					print(paste("Updating ", controlId, "Len3", sep=''))
+					# print(paste("Updating ", controlId, "Len3", sep=''))
 					updateNumericInput(session, inputId=paste0(controlId, 'Len'), value=primerLen)
 				}
 			}
