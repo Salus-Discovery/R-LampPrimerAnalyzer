@@ -310,11 +310,12 @@ getPrettyNum <- function(x, sigFigs=3, dropTrailingZeros=F)
 	return(ret)
 }
 
-getPrimerStats <- function(x, type)
+getPrimerStats <- function(x)
 {
 	hp <- fold(x)
 	homd <- homodimer(x)
-	ret <- list(Tm=sig.digits(calculate_tm(toUpper(x)), 3),
+	Tm <- calculate_tm(toUpper(x))
+	ret <- list(Tm=sig.digits(Tm, 3),
 					HpTm=sig.digits(hp$temp, 3),
 					HpDeltaG=sig.digits(hp$dg/1000, 3),
 					HpStruct=ifelse(hp$structure_found, hp$structure, ''),
@@ -322,6 +323,73 @@ getPrimerStats <- function(x, type)
 					HmdDeltaG=sig.digits(homd$dg/1000, 3),
 					HmdStruct=ifelse(homd$structure_found, homd$structure, ''))
 	return(ret)
+}
+
+getColor <- function(...)
+{
+  args <- list(...)
+  if(length(args) == 1 && length(args[[1]])>1)
+  {
+    return(getPrimerColors()[match(as.character(args[[1]]), Primer)]$plotColor)
+  }
+  else
+  {
+    return(getPrimerColors()[match(args, Primer)]$plotColor)
+  }
+  
+}
+
+getPrimerColors <- function()
+{
+  return(data.table(Primer=c('F3',
+                             'F3c',
+                             'F2',
+                             'F2c',
+                             'F1',
+                             'F1c',
+                             'B1',
+                             'B1c',
+                             'B2',
+                             'B2c',
+                             'B3',
+                             'B3c',
+                             'LF',
+                             'LFc',
+                             'LB',
+                             'LBc',
+                             'FIP',
+                             'BIP',
+                             'DBF',
+                             'DBB',
+                             'PNAF',
+                             'PNAFc',
+                             'PNAB',
+                             'PNABc'),
+                    plotColor=c('#99ff99', # F3
+                                '#99ff99', # F3
+                                '#66ffff', # F2
+                                '#66ffff', # F2
+                                '#ffff66', # F1
+                                '#ffff66', # F1
+                                '#ffff66', # B1c
+                                '#ffff66', # B1c
+                                '#66ffff', # B2c
+                                '#66ffff', # B2c
+                                '#99ff99', # B3c
+                                '#99ff99', # B3c
+                                '#cc99ff', # LFc
+                                '#cc99ff', # LFc
+                                '#cc99ff', # LB
+                                '#cc99ff', # LB
+                                '#003399', # FIP
+                                '#003399', # BIP
+                                '#ff0066', # DBF
+                                '#ff0066', # DBB
+                                '#ff3300', # PNAF
+                                '#ff3300', # PNAF
+                                '#ff3300', # PNABc
+                                '#ff3300') # PNABc
+  ))
 }
 
 getDimerStats <- function(x, y)
@@ -337,18 +405,18 @@ getDimerStats <- function(x, y)
 ui <- fluidPage(
 	tags$head(
 		# Note the wrapping of the string in HTML()
-		tags$style(HTML("
-      markF3	{background-color: #99ff99; 	color: black;}
-      markF2	{background-color: #66ffff;	color: black;}
-      markLFc	{background-color: #ffff66;	color: black;}
-      markF1	{background-color: #cc99ff;	color: black;}
-      markB1c	{background-color: #cc99ff;	color: black;}
-      markLB	{background-color: #ffff66;	color: black;}
-      markB2c	{background-color: #66ffff;	color: black;}
-      markB3c	{background-color: #99ff99;	color: black;}
-      markPNAF	{background-color: #ff3300;	color: black;}
-      markPNABc{background-color: #ff3300;	color: black;}
-		"))
+		tags$style(HTML(paste("
+      markF3	{background-color: ", getColor('F3'), "; 	color: black;}
+      markF2	{background-color: ", getColor('F2'), ";	color: black;}
+      markLFc	{background-color: ", getColor('LFc'), ";	color: black;}
+      markF1	{background-color: ", getColor('F1'), ";	color: black;}
+      markB1c	{background-color: ", getColor('B1c'), ";	color: black;}
+      markLB	{background-color: ", getColor('LB'), ";	color: black;}
+      markB2c	{background-color: ", getColor('B2c'), ";	color: black;}
+      markB3c	{background-color: ", getColor('B3c'), ";	color: black;}
+      markPNAF {background-color: ", getColor('PNAF'), ";	color: black;}
+      markPNABc{background-color: ", getColor('PNABc'), ";	color: black;}
+		", collapse='')))
 	),
 	tags$script("
             Shiny.addCustomMessageHandler('txt', function (txt) {
@@ -636,43 +704,48 @@ server <- function(input, output, session) {
 	setUpControlLinks(input, output, session, vals, 'PNAF', mySeq, initLocs)
 	setUpControlLinks(input, output, session, vals, 'PNABc', mySeq, initLocs)
 	
+  sensePrimerNames <- c('F3','F2','F1','LFc','B1c','B2c','B3c','LB','PNAF','PNABc')
+	
 	starts <- reactive({
-		c(getStart(input, 'F3'), 
-		  getStart(input, 'F2'), 
-		  getStart(input, 'F1'), 
-		  getStart(input, 'LFc'), 
-		  getStart(input, 'B1c'), 
-		  getStart(input, 'B2c'), 
-		  getStart(input, 'B3c'), 
-		  getStart(input, 'LB'), 
-		  getStart(input, 'PNAF'),
-		  getStart(input, 'PNABc'))
+	  sapply(sensePrimerNames, function(x){getStart(input, x)})
+		# c(getStart(input, 'F3'), 
+		#   getStart(input, 'F2'), 
+		#   getStart(input, 'F1'), 
+		#   getStart(input, 'LFc'), 
+		#   getStart(input, 'B1c'), 
+		#   getStart(input, 'B2c'), 
+		#   getStart(input, 'B3c'), 
+		#   getStart(input, 'LB'), 
+		#   getStart(input, 'PNAF'),
+		#   getStart(input, 'PNABc'))
 	})
 	
 	stops <- reactive({
-		c(getEnd(input, 'F3'), 
-		  getEnd(input, 'F2'), 
-		  getEnd(input, 'F1'), 
-		  getEnd(input, 'LFc'), 
-		  getEnd(input, 'B1c'), 
-		  getEnd(input, 'B2c'), 
-		  getEnd(input, 'B3c'), 
-		  getEnd(input, 'LB'), 
-		  getEnd(input, 'PNAF'),
-		  getEnd(input, 'PNABc'))
+	  sapply(sensePrimerNames, function(x){getEnd(input, x)})
+		# c(getEnd(input, 'F3'), 
+		#   getEnd(input, 'F2'), 
+		#   getEnd(input, 'F1'), 
+		#   getEnd(input, 'LFc'), 
+		#   getEnd(input, 'B1c'), 
+		#   getEnd(input, 'B2c'), 
+		#   getEnd(input, 'B3c'), 
+		#   getEnd(input, 'LB'), 
+		#   getEnd(input, 'PNAF'),
+		#   getEnd(input, 'PNABc'))
 	})
 	
 	primerColors <- reactive({
-		c('#99ff99', # F3
-		  '#66ffff', # F2
-		  '#ffff66', # F1x
-		  '#cc99ff', # LFc
-		  '#ffff66', # B1c
-		  '#66ffff', # B2c
-		  '#99ff99', # B3c
-		  '#cc99ff', # LB
-		  '#ff3300', # PNAF
-		  '#ff3300') # PNABc
+	  getColor(sensePrimerNames)
+		# c('#99ff99', # F3
+		#   '#66ffff', # F2
+		#   '#ffff66', # F1x
+		#   '#cc99ff', # LFc
+		#   '#ffff66', # B1c
+		#   '#66ffff', # B2c
+		#   '#99ff99', # B3c
+		#   '#cc99ff', # LB
+		#   '#ff3300', # PNAF
+		#   '#ff3300') # PNABc
 	})
 	
 	# Sense primers
@@ -792,9 +865,9 @@ server <- function(input, output, session) {
 								ret[Primer == 'PNAF', Start5p:=getStart(input, 'PNAF')]
 								ret[Primer == 'PNAB', Start5p:=getEnd(input, 'PNABc')]
 								ret[, Len:=length(s2c(Seq)), by='Primer']
-								ret[, c('Tm','HpTm','HpDeltaG','HpStruct','HmdTm','HmdDeltaG','HmdStruct'):=getPrimerStats(Seq, .BY[[1]]), by='Primer']
+								ret[, c('Tm','HpTm','HpDeltaG','HpStruct','HmdTm','HmdDeltaG','HmdStruct'):=getPrimerStats(Seq), by='Primer']
 								ret[Primer %in% c('FIP','BIP'), c('HtdTm','HtdDeltaG','HtdStruct'):=getDimerStats(Seq, ifelse(.BY[[1]]=='FIP', BIP(), FIP())), by='Primer']
-								ret[Primer %in% c('FIP','BIP'), Tm:='NA']
+								# ret[Primer %in% c('FIP','BIP'), Tm:='NA']
 								ret[, KeyEndStability:=ifelse(Primer %in% c('F1c','B1c'), Stability5p, Stability3p)]
 								
 								# Data for energy plot
@@ -805,29 +878,9 @@ server <- function(input, output, session) {
 								ret2[, Primer:=factor(ret2$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','FIP','BIP','PNAF','PNAB','DBF','DBB'))]
 								
 								# Data for Tm plot
-								ret3 <- ret[Primer %!in% c('DBF','DBB','FIP','BIP'), c('Primer','Tm')]
+								ret3 <- ret[, c('Primer','Tm')]
 								ret3[, Tm:=suppressWarnings(as.numeric(Tm))]
-								primerColors <- data.table(Primer=c('F3',
-																				'F2',
-																				'F1c',
-																				'LF',
-																				'B1c',
-																				'B2',
-																				'B3',
-																				'LB',
-																				'PNAF',
-																				'PNAB'),
-																	plotColor=c('#99ff99', # F3
-																					'#66ffff', # F2
-																					'#ffff66', # F1
-																					'#cc99ff', # LFc
-																					'#ffff66', # B1c
-																					'#66ffff', # B2c
-																					'#99ff99', # B3c
-																					'#cc99ff', # LB
-																					'#ff3300', # PNAF
-																					'#ff3300') # PNABc
-								)
+								primerColors <- getPrimerColors()
 								setkey(ret3, Primer)
 								setkey(primerColors, Primer)
 								ret3 <- primerColors[ret3]
@@ -899,8 +952,9 @@ server <- function(input, output, session) {
 		
 		output$TmPlot <- renderPlot({
 			req(mySeq(), vals$results3)
-			ggplot(data=vals$results3, aes(x=Primer, y=Tm, fill=plotColor)) + 
+			ggplot(data=vals$results3, aes(x=Primer, y=Tm, fill=Primer)) + 
 				geom_col() +
+			  scale_fill_manual(values = getColor(as.character(levels(vals$results3$Primer)))) + 
 				geom_hline(yintercept=c(50,60,70)) +
 				scale_y_continuous(limits=c(40,80),oob = rescale_none)
 		})
