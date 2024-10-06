@@ -1209,11 +1209,15 @@ server <- function(input, output, session) {
 		x <- x[x[[1]] %in% c('F1','F1c','F2','F2c','F3','F3c','B1','B1c','B2','B2c','B3','B3c','PNAF','PNAFc','PNAB','PNABc','LF','LFc','LB','LBc')]
 		if(nrow(x) == 0)
 		{
-			warning("First column should contain the name of the primer type (e.g., F3 etc). Re-copy primer information.")
+			txt <- "First column should contain the name of the primer type (e.g., F3 etc). Re-copy primer information."
+			warning(txt)
+			output$revCOutput <- renderText(txt)
 		}
 		else if(ncol(x) != 3)
 		{
-			warning("Please copy just the primer name column and the start and end position columns (3 columns total). Re-copy primer information.")
+			txt <- "Please copy just the primer name column and the start and end position columns (3 columns total). Re-copy primer information."
+			warning(txt)
+			output$revCOutput <- renderText(txt)
 		}
 		else
 		{
@@ -1234,6 +1238,7 @@ server <- function(input, output, session) {
 				updateValsItem(x[i][[primerColName]], x[i][[startColName]], vals, group='Start')
 				updateValsItem(x[i][[primerColName]], x[i][[endColName]], vals, group='Start')
 			}
+			output$revCOutput <- renderText("Clipboard imported.")
 		}
 	})
 	
