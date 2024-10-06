@@ -35,16 +35,26 @@ library(pwalign)
 library(marker)
 library(ggplot2)
 library(scales)
+library(purrr)
 
+sink(stdout(), type="message")
+
+getMultiVals = function(field, vals){
+	isolate(purrr::pluck(vals, !!!field))
+}
+
+setMultiVals = function(rv,field,value){
+	isolate(purrr::pluck(rv, !!!field) <- value )
+}
 
 fold <- function(x)
 {
 	if(calcLen(x) > 47)
 	{
-	  if(any(grepl('[Nn]',x)))
-	  {
-	    browser()
-	  }
+		if(any(grepl('[Nn]',x)))
+		{
+			browser()
+		}
 		duh <- predictMfeStructure(XNAString(base = toUpper(paste(x, collapse=''))))
 		ret <- list(structure_found = T, 
 						temp = 0, 
@@ -55,6 +65,7 @@ fold <- function(x)
 	{
 		duh <- toUpper(paste(x, collapse=''))
 		ret <- calculate_hairpin(duh)
+		ret$dg <- ret$dg/1000
 	}
 	# obj1 <- XNAString(base = duh)
 	# ret <- predictMfeStructure(obj1)
@@ -69,12 +80,14 @@ homodimer <- function(x)
 		browser()
 	}
 	ret <- calculate_homodimer(duh)
+	ret$dg <- ret$dg/1000
 	return(ret)
 }
 
 heterodimer <- function(x, y)
 {
 	ret <- calculate_dimer(toUpper(paste(x, collapse='')), toUpper(paste(y, collapse='')))
+	ret$dg <- ret$dg/1000
 	return(ret)
 }
 
@@ -96,14 +109,15 @@ end_stability <- function(x, n=5, threePrimeEnd=TRUE)
 	}
 	# print(x)
 	# print(revC(x))
-	return(sig.digits(heterodimer(x, revC(x))$dg/1000, nSig=2))
+	return(sig.digits(heterodimer(x, revC(x))$dg, nSig=2))
 }
 
 revC <- function(x, keepCase=F)
 {
-	if(any(is.na(x)))
+	if(any(is.na(x)) || any(grepl( '[^AGTCagtcNn]', x)))
 	{
 		browser()
+		stop("Found a non coding character in revC.")
 	}
 	if(length(x) == 1)
 	{
@@ -169,39 +183,41 @@ matchCase <- function(template, target)
 	return(target)
 }
 
-plotHairpin <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
+plotHairpin <- function(seq, fullHairpinEnergy, dbSeq, dbStart, dbEnd, starts, ends, colors)
 {
-  # browser()
 	bp <- dbStart:dbEnd
 	seq.new <- s2c(dbSeq)
 	# bpRange <- c(max(1,start.new), min(length(seq), start.new + length(seq.new) - 1))
 	# bp <- bp[bp > 0 & bp < calcLen(seq)]
-	hairpin.new <- rollapply(seq.new, width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
+	hairpin.new <- rollapply(seq.new, width=25, FUN=function(x){return(fold(x)$dg)}, partial=T, align='center')
 	hairpin.new[is.na(hairpin.new)] <- 0
 	# validBp <- bp[bp > 0 & bp < length(seq)]
-	hairpin <- rollapply(seq, width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
+	hairpin <- fullHairpinEnergy # rollapply(seq, width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
 	# hairpin <- rollapply(seq[validBp], width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
 	hairpin[is.na(hairpin)] <- 0
 	if(any(seq %in% c('A','G','T','C')))
 	{
-	  codons <- which(seq %in% c('A','G','T','C'))
+		codons <- which(seq %in% c('A','G','T','C'))
 	}
 	else
 	{
-	  codons <- c()
+		codons <- c()
 	}
+	par(mar = c(4, 5, 1, 1), mgp=c(2.7, 1, 0))
 	if(length(codons) > 0)
 	{
-	  # plot(validBp, hairpin,
-	  plot(1:calcLen(seq), hairpin,
-	       type='l',
-	       # xlim=c(max(0, min(c(codons, starts, start.new))-25), min(length(seq), max(c(codons, ends, start.new+(length(hairpin.new)-1)))+25)),
-	       main='',
-	       ylab='Hairpin Energy [kJ/mol]',
-	       xlab='Position [bp]',
-	       cex.lab=1.5)
-	  lines(x=bp, y=hairpin.new, col='gray', lwd=4)
-	  abline(v=codons, h=0.6, col=setColor('red', 0.2))
+		# plot(validBp, hairpin,
+		plot(1:calcLen(seq), hairpin,
+			  type='l',
+			  # xlim=c(max(0, min(c(codons, starts, start.new))-25), min(length(seq), max(c(codons, ends, start.new+(length(hairpin.new)-1)))+25)),
+			  main='',
+			  ylab='Hairpin Energy [kJ/mol]',
+			  xlab='Position [bp]',
+			  cex.lab=1.5,
+			  xaxt='n',
+			  yaxt='n')
+		lines(x=bp, y=hairpin.new, col='gray', lwd=4)
+		abline(v=codons, h=0.6, col=setColor('red', 0.2))
 	}
 	else
 	{
@@ -211,19 +227,22 @@ plotHairpin <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
 			  main='',
 			  ylab='Hairpin Energy [kJ/mol]',
 			  xlab='Position [bp]',
-			  cex.lab=1.5)
+			  cex.lab=1.5,
+			  xaxt='n',
+			  yaxt='n')
 		lines(x=bp, y=hairpin.new, col='gray', lwd=4)
 	}
+	axis(1,cex.axis=1.5, las=1)
+	axis(2,cex.axis=1.5, las=1)
 	for(i in seq_along(starts))
 	{
 		shade(starts[i], ends[i], colors[i], alpha=0.2)
 	}
 }
 
-plotGC <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
+plotGC <- function(seq, fullGC, dbSeq, dbStart, dbEnd, starts, ends, colors)
 {
-	gc <- ifelse(seq %in% c("g","G","c","C"), 1, 0)
-	gc.frac <- rollapply(gc, width=20, FUN=mean, partial=T, align='center')
+	gc.frac <- fullGC # rollapply(gc, width=20, FUN=mean, partial=T, align='center')
 	start.new <- dbStart
 	seq.new <- s2c(dbSeq)
 	gc.new <- ifelse(seq.new %in% c("g","G","c","C"), 1, 0)
@@ -232,13 +251,13 @@ plotGC <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
 	bp <- bp[bp > 0 & bp < calcLen(seq)]
 	if(any(seq[bp] %in% c('A','G','T','C')))
 	{
-	  codons <- bp[which(seq[bp] %in% c('A','G','T','C'))]
+		codons <- bp[which(seq[bp] %in% c('A','G','T','C'))]
 	}
 	else
 	{
-	  codons <- c()
+		codons <- c()
 	}
-	
+	par(mar = c(4, 5, 1, 1), mgp=c(2.7, 1, 0))
 	if(length(codons) > 0)
 	{
 		plot(seq_along(gc.frac), gc.frac,
@@ -248,7 +267,9 @@ plotGC <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
 			  ylim=c(0.35,1),
 			  ylab='GC Fraction',
 			  xlab='Position [bp]',
-			  cex.lab=1.5)
+			  cex.lab=1.5,
+			  xaxt='n',
+			  yaxt='n')
 		lines(x=start.new:(start.new+(length(gc.frac.new)-1)), y=gc.frac.new, col='gray', lwd=4)
 		abline(v=codons, h=0.6, col=setColor('red', 0.2))
 	}
@@ -261,9 +282,13 @@ plotGC <- function(seq, dbSeq, dbStart, dbEnd, starts, ends, colors)
 			  ylim=c(0.35,1),
 			  ylab='GC Fraction',
 			  xlab='Position [bp]',
-			  cex.lab=1.5)
+			  cex.lab=1.5,
+			  xaxt='n',
+			  yaxt='n')
 		lines(x=start.new:(start.new+(length(gc.frac.new)-1)), y=gc.frac.new, col='gray', lwd=4)
 	}
+	axis(1,cex.axis=1.5, las=1)
+	axis(2,cex.axis=1.5, las=1)
 	for(i in seq_along(starts))
 	{
 		shade(starts[i], ends[i], colors[i], alpha=0.2)
@@ -318,93 +343,156 @@ getPrimerStats <- function(x)
 	Tm <- calculate_tm(toUpper(x))
 	ret <- list(Tm=sig.digits(Tm, 3),
 					HpTm=sig.digits(hp$temp, 3),
-					HpDeltaG=sig.digits(hp$dg/1000, 3),
+					HpDeltaG=sig.digits(hp$dg, 3),
 					HpStruct=ifelse(hp$structure_found, hp$structure, ''),
 					HmdTm=sig.digits(homd$temp, 3),
-					HmdDeltaG=sig.digits(homd$dg/1000, 3),
+					HmdDeltaG=sig.digits(homd$dg, 3),
 					HmdStruct=ifelse(homd$structure_found, homd$structure, ''))
 	return(ret)
 }
 
 getColor <- function(...)
 {
-  args <- list(...)
-  if(length(args) == 1 && length(args[[1]])>1)
-  {
-    return(getPrimerColors()[match(as.character(args[[1]]), Primer)]$plotColor)
-  }
-  else
-  {
-    return(getPrimerColors()[match(args, Primer)]$plotColor)
-  }
-  
+	args <- list(...)
+	if(length(args) == 1 && length(args[[1]])>1)
+	{
+		return(getPrimerColors()[match(as.character(args[[1]]), Primer)]$plotColor)
+	}
+	else
+	{
+		return(getPrimerColors()[match(args, Primer)]$plotColor)
+	}
+	
 }
 
 getPrimerColors <- function()
 {
-  return(data.table(Primer=c('F3',
-                             'F3c',
-                             'F2',
-                             'F2c',
-                             'F1',
-                             'F1c',
-                             'B1',
-                             'B1c',
-                             'B2',
-                             'B2c',
-                             'B3',
-                             'B3c',
-                             'LF',
-                             'LFc',
-                             'LB',
-                             'LBc',
-                             'FIP',
-                             'BIP',
-                             'DBF',
-                             'DBB',
-                             'PNAF',
-                             'PNAFc',
-                             'PNAB',
-                             'PNABc'),
-                    plotColor=c('#99ff99', # F3
-                                '#99ff99', # F3
-                                '#66ffff', # F2
-                                '#66ffff', # F2
-                                '#ffff66', # F1
-                                '#ffff66', # F1
-                                '#ffff66', # B1c
-                                '#ffff66', # B1c
-                                '#66ffff', # B2c
-                                '#66ffff', # B2c
-                                '#99ff99', # B3c
-                                '#99ff99', # B3c
-                                '#cc99ff', # LFc
-                                '#cc99ff', # LFc
-                                '#cc99ff', # LB
-                                '#cc99ff', # LB
-                                '#003399', # FIP
-                                '#003399', # BIP
-                                '#ff0066', # DBF
-                                '#ff0066', # DBB
-                                '#ff3300', # PNAF
-                                '#ff3300', # PNAF
-                                '#ff3300', # PNABc
-                                '#ff3300') # PNABc
-  ))
+	return(data.table(Primer=c('F3',
+										'F3c',
+										'F2',
+										'F2c',
+										'F1',
+										'F1c',
+										'B1',
+										'B1c',
+										'B2',
+										'B2c',
+										'B3',
+										'B3c',
+										'LF',
+										'LFc',
+										'LB',
+										'LBc',
+										'FIP',
+										'BIP',
+										'DBF',
+										'DBB',
+										'PNAF',
+										'PNAFc',
+										'PNAB',
+										'PNABc'),
+							plotColor=c('#99ff99', # F3
+											'#99ff99', # F3
+											'#66ffff', # F2
+											'#66ffff', # F2
+											'#ffff66', # F1
+											'#ffff66', # F1
+											'#ffff66', # B1c
+											'#ffff66', # B1c
+											'#66ffff', # B2c
+											'#66ffff', # B2c
+											'#99ff99', # B3c
+											'#99ff99', # B3c
+											'#cc99ff', # LFc
+											'#cc99ff', # LFc
+											'#cc99ff', # LB
+											'#cc99ff', # LB
+											'#003399', # FIP
+											'#003399', # BIP
+											'#ff0066', # DBF
+											'#ff0066', # DBB
+											'#ff3300', # PNAF
+											'#ff3300', # PNAF
+											'#ff3300', # PNABc
+											'#ff3300') # PNABc
+	))
 }
+
+getCombos <- function(x, colnames=c('Var1','Var2'))
+{
+	Var1 <- c()
+	Var2 <- c()
+	for(i in seq_along(x))
+	{
+		for(j in i:length(x))
+		{
+			Var1 <- c(Var1, x[i])
+			Var2 <- c(Var2, x[j])
+		}
+	}
+	ret <- data.table(Var1=Var1, Var2=Var2)
+	setnames(ret, old=c('Var1','Var2'), new=colnames)
+	return(ret)
+}
+
+getHtdStats <- function(primers, seqs, func=daFunc)
+{
+	duh2 <- data.table(getCombos(primers, colnames=c('P1','P2')), getCombos(seqs, c('Seq1','Seq2')))
+	duh2 <- duh2[duh2[, func(Seq1, Seq2), by=c('P1','P2')], on=c('P1','P2')]
+	valNames <- names(duh2)
+	valNames <- valNames[valNames %!in% c('P1','P2','Seq1','Seq2')]
+	blah <- rbindlist(list(duh2, data.table(Seq1=duh2$Seq2, Seq2=duh2$Seq1, P1=duh2$P2, P2=duh2$P1, duh2[, mget(valNames)])), use.names=T)
+	blah <- unique(blah)
+	blah[, max.i:=which.max(HtdDeltaG), by='P1']
+	blah <- blah[, c(list(P2=P2[max.i]), lapply(mget(valNames), function(x){x[max.i[1]]})), by='P1']
+	return(blah[match(primers, P1), mget(c('P2', valNames))])
+}
+
 
 getDimerStats <- function(x, y)
 {
 	hetd <- heterodimer(x, y)
 	ret <- list(HtdTm=sig.digits(hetd$temp, 3),
-					HtdDeltaG=sig.digits(hetd$dg/1000, 3),
+					HtdDeltaG=sig.digits(hetd$dg, 3),
 					HtdStruct=ifelse(hetd$structure_found, hetd$structure, ''))
 	return(ret)
 }
 
+#' Read table from the clipboard
+#'
+#' This is a cool way to import data using the clipboard. The clipboard table
+#' is typically copied as a tab delimited text 'file' connection
+#'
+#' @param os - c('mac','win'), string value indicating the platform to use
+#' @param header - TRUE or FALSE, whether the header is included in the copied table
+#' @param sep - text, defining the separator character used between values (needs to be in double quotes)
+#' @param use.data.table - TRUE or FALSE, whether to return a data.table (default)
+#' @param ... - additional variables supplied are passed onto the underlying read.table function (e.g., stringsAsFactors, comment.char, col.names)
+#'
+#' @export
+read.clipboard <- function(os=c('mac','win'), header=T, sep="\t", use.data.table=T, ...)
+{
+	if(os[1]=='mac')
+	{
+		ret <- read.table(pipe('pbpaste'), header=header, sep=sep, ...) # Mac
+	}
+	else
+	{
+		ret <- read.table('clipboard', header=header, sep=sep, ...) # Windows
+	}
+	if(use.data.table)
+	{
+		return(data.table(ret))
+	}
+	else
+	{
+		return(ret)
+	}
+}
+
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-  theme = shinytheme("darkly"),
+	theme = shinytheme("darkly"),
 	tags$head(
 		# Note the wrapping of the string in HTML()
 		tags$style(HTML(paste("
@@ -418,17 +506,7 @@ ui <- fluidPage(
       markB3c	{background-color: ", getColor('B3c'), ";	color: black;}
       markPNAF {background-color: ", getColor('PNAF'), ";	color: black;}
       markPNABc{background-color: ", getColor('PNABc'), ";	color: black;}
-      F3    {color: ", getColor('F3'), "}
-      F2    {color: ", getColor('F3'), "}
-      F1    {color: ", getColor('F3'), "}
-      LFc   {color: ", getColor('F3'), "}
-      B1c   {color: ", getColor('F3'), "}
-      B2c   {color: ", getColor('F3'), "}
-      B3c   {color: ", getColor('F3'), "}
-      LB    {color: ", getColor('F3'), "}
-      PNAF  {color: ", getColor('F3'), "}
-      PNABc {color: ", getColor('F3'), "}
-		", collapse='')))
+      ", collapse='')))
 	),
 	tags$script("
             Shiny.addCustomMessageHandler('txt', function (txt) {
@@ -443,7 +521,7 @@ ui <- fluidPage(
 	
 	# Sidebar with a slider input for number of bins 
 	sidebarLayout(
-		sidebarPanel(
+		sidebarPanel(width=5,
 			h4("Target Sequence:"),
 			tags$textarea(id="Seq", rows=10, cols=60, 
 							  'atcgaccacttcggcaaccgccgcctgcgtacggtcggcgagctgatccaaaaccagatccgggtcggcatgtcgcggatggagcgggtggtccgggagcggatgaccacccaggacgtggaggcgatcacaccgcagacgttgatcaacatccggccggtggtcgccgcgatcaaggagttcttcggcaccagccagctgagccaattcatgGACcagaacaacccgctgtcggggttgaccCACaagcgccgactgTCGgcgctggggcccggcggtctgtcacgtgagcgtgccgggctggaggtccgcgacgtgcacccgtcgcactacggccggatgtgcccgatcgaaacccctgaggggcccaacatcggtctgatcggctcgctgtcggtgtacgcgcgggtcaacccgttcgggttcatcgaaacgccgtaccgcaaggtggtcgacggcgtggttagcgacgagatcgtgtacctgaccgccgacgagga'
@@ -452,7 +530,8 @@ ui <- fluidPage(
 			fluidPage(fluidRow(column(6, numericInput("polyT", "FIP/BIP PolyT-Spacer Length:", 3)),
 									 column(6, numericInput("stabilityN", "End Stability Bp's:", 5))),
 						 textInput('revCTool', 'Rev. Compl. Tool', placeholder='Auto-copy RevC to Clipboard'),
-						 textOutput('revCOutput')),
+						 textOutput('revCOutput'),
+						 actionButton("importButton", "Import Clipboard")),
 			hr(),
 			# textOutput("Warnings"),
 			# actionButton("Update", "Update Plots"),
@@ -469,196 +548,115 @@ ui <- fluidPage(
 		),
 		
 		# Show a plot of the generated distribution
-		mainPanel(
-		  wellPanel(style="background-color: white;", 
-		            plotOutput("GCPlot"),
-		            plotOutput("HairpinPlot"),
-		            plotOutput("EnergyPlot"),
-		            plotOutput("TmPlot"),
-		  ),
-		  hr(),
-		  uiOutput("coloredSeq"),
-		  fluidPage(fluidRow(column(2, downloadButton('download',"Download Table")),
-		                     column(3, textInput('downloadName',NULL, value='Primer Set 1')),
-		                     column(1, h4(".csv")),
-		                     column(6, ))),
-		  tableOutput("ResultsTable"),
+		mainPanel(width=7,
+			uiOutput("coloredSeq"),
+			wellPanel(style="background-color: white;", 
+						 plotOutput("GCPlot"),
+						 plotOutput("HairpinPlot"),
+						 plotOutput("EnergyPlot"),
+						 plotOutput("TmPlot"),
+			),
+			hr(),
+			fluidPage(fluidRow(column(2, downloadButton('download',"Download Table")),
+									 column(3, textInput('downloadName',NULL, value='Primer Set 1')),
+									 column(1, h4(".csv")),
+									 column(6, ))),
+			tableOutput("ResultsTable"),
 		)
 	)
 )
 
 getSeqFromStartAndLen <- function(start, len, mySeq)
 {
-  return(mySeq[start:(start+len-1)])
+	return(mySeq[start:(start+len-1)])
 }
 
-getStartAndLenFromSeq <- function(primer, mySeq)
+getStartFromSeq <- function(primer, target)
 {
-	temp <- pwalign::pairwiseAlignment(primer, mySeq, type='local', gapOpening=1000000, gapExtension=1000000)
+	temp <- pwalign::pairwiseAlignment(primer, target, type='local', gapOpening=1000000, gapExtension=1000000)
 	return(start(subject(temp)))
 }
 
-renderPrimerControl <- function(input, output, session, vals, controlId, mySeq, initLocs=c(1), Loc=1, initLen=20, initNTs='')
+renderPrimerControl <- function(seq, controlId, initLocs=c(1), Loc=1, initLen=20)
 {
+	initStart <- ifelse(Loc > 0, initLocs[Loc], 1)
 	fluidPage({
-		fluidRow(
-			column(1, HTML(paste(tags$h4(tags$span(style=paste("color: ", getColor(controlId), sep=''), controlId), sep='')))),
-			column(1, checkboxInput(paste0(controlId, 'Check'), '', value=T)), #value=grepl('[12]', controlId))),
-			column(2, numericInput(paste0(controlId, 'Start'), 'Start', value=ifelse(Loc > 0, initLocs[Loc], 1))),
-			column(2, numericInput(paste0(controlId, 'Len'), 'Length', value=initLen)),
-			column(6, textInput(paste0(controlId, 'NTs'), 'Seq', value=initNTs))
+		fluidRow(style = "height:20px;",
+					column(1, HTML(paste(tags$h4(tags$span(style=paste("color: ", getColor(controlId), sep=''), controlId), sep='')))),
+					column(1, checkboxInput(paste0(controlId, 'Check'), '', value=T)), #value=grepl('[12]', controlId))),
+					column(2, numericInput(paste0(controlId, 'Start'), 'Start', value=initStart)),
+					column(2, numericInput(paste0(controlId, 'Len'), 'Length', value=initLen)),
+					column(6, textInput(paste0(controlId, 'NTs'), 'Seq', value=paste(seq[initStart:(initStart+initLen-1)], collapse='')))
 		)
 	})
 }
 
-setUpControlLinks <- function(input, output, session, vals, controlId, mySeq, initLocs)
+getInputs <- function(prefixes, suffix, input)
 {
-	observeEvent(input[[paste0(controlId, 'Start')]], {
-		req(mySeq(), input[[paste0(controlId, 'Start')]])
-		if(is.null(vals[[paste0(controlId, 'Start')]]) || vals[[paste0(controlId, 'Start')]] != input[[paste0(controlId, 'Start')]]) # Then go ahead and update
+	lapply(prefixes, getInput, suffix=suffix, input=input)
+	# input[paste(prefixes, suffix, sep='')]
+}
+
+getInput <- function(prefix, suffix, input)
+{
+	input[[paste(prefix, suffix, sep='')]]
+}
+
+updateValsGroupItem <- function(id, group, input, vals)
+{
+	# print(paste(c(id, group, input[[paste(id, group, sep='')]], vals[[group]])))
+	val <- input[[paste(id, group, sep='')]]
+	if(length(val) > 0)
+	{
+		if(length(vals[[group]]) == 0)
 		{
-			# Reset if the new start is less than 1
-			if(input[[paste0(controlId, 'Start')]] <= 0)
+			vals[[group]] <- list()
+		}
+		if(length(vals[[group]][[id]])==0 || any(vals[[group]][[id]] != val))
+		{
+			vals[[group]][[id]] <- val
+		}
+	}
+}
+
+updateValsItem <- function(id, val, vals, group=NULL)
+{
+	if(is.null(group))
+	{
+		if(length(vals)>0 && length(val)>0)
+		{
+			if(length(vals[[id]])==0 || length(vals[[id]]) != length(val) || any(vals[[id]] != val))
 			{
-				# print(paste("Updating ", controlId, "Start1", sep=''))
-				updateNumericInput(session, inputId=paste0(controlId, 'Start'), value=1)
-			}
-			else
-			{
-				# Reset the start if the new Start and Len are too big.
-				if(input[[paste0(controlId, 'Start')]] > (length(mySeq()) - (input[[paste0(controlId, 'Len')]] - 1)))
-				{
-					# print(paste("Updating ", controlId, "Start2", sep=''))
-					updateNumericInput(session, inputId=paste0(controlId, 'Start'), value=(length(mySeq()) - (input[[paste0(controlId, 'Len')]] - 1)))
-				}
-				else
-				{
-					# update reactive value for Start
-					vals[[paste0(controlId, 'Start')]] <- input[[paste0(controlId, 'Start')]]
-					
-					# update linked controls
-					newSeq <- getSeqFromStartAndLen(start=input[[paste0(controlId, 'Start')]], len=input[[paste0(controlId, 'Len')]], mySeq())
-					if(input[[paste0(controlId, 'NTs')]] != paste(newSeq, collapse=''))
-					{
-						# Update reactive value and UI for NTs
-						# print(paste("Updating ", controlId, "NTs1", sep=''))
-						vals$updatingNTCount <- vals$updatingNTCount + 1
-						vals[[paste0(controlId, 'NTs')]] <- paste(newSeq, collapse='')
-						updateTextInput(session, inputId=paste0(controlId, 'NTs'), value=paste(newSeq, collapse=''))
-					}
-				}
+				vals[[id]] <- val
+				return(TRUE)
 			}
 		}
-	}, ignoreInit = F)
-	
-	observeEvent(input[[paste0(controlId, 'Len')]], {
-		req(mySeq(), input[[paste0(controlId, 'Len')]])
-		if(is.null(vals[[paste0(controlId, 'Len')]]) || vals[[paste0(controlId, 'Len')]] != input[[paste0(controlId, 'Len')]]) # Then go ahead and update
+	}
+	else
+	{
+		if(length(vals)>0 && length(val)>0)
 		{
-			# Reset if the new start is less than 1
-			if(input[[paste0(controlId, 'Len')]] <= 0)
+			if(length(vals[[group]])==0)
 			{
-				# print(paste("Updating ", controlId, "Len1", sep=''))
-				updateNumericInput(session, inputId=paste0(controlId, 'Len'), value=1)
+				vals[[group]] <- list()
 			}
-			else
+			if(length(vals[[group]][[id]])==0 || any(vals[[group]][[id]] != val))
 			{
-				# Reset the start if the new Start and Len are too big.
-				if(input[[paste0(controlId, 'Start')]] > (length(mySeq()) - (input[[paste0(controlId, 'Len')]] - 1)))
-				{
-					# print(paste("Updating ", controlId, "Len2", sep=''))
-					updateNumericInput(session, inputId=paste0(controlId, 'Len'), value=(length(mySeq()) - (input[[paste0(controlId, 'Start')]] + 1)))
-				}
-				else
-				{
-					# update reactive value for Len
-					vals[[paste0(controlId, 'Len')]] <- input[[paste0(controlId, 'Len')]]
-					
-					# update linked controls
-					newSeq <- getSeqFromStartAndLen(start=input[[paste0(controlId, 'Start')]], len=input[[paste0(controlId, 'Len')]], mySeq())
-					if(input[[paste0(controlId, 'NTs')]] != paste(newSeq, collapse=''))
-					{
-						# Update reactive value and UI for NTs
-						# print(paste("Updating ", controlId, "NTs2", sep=''))
-						vals$updatingNTCount <- vals$updatingNTCount + 1
-						vals[[paste0(controlId, 'NTs')]] <- paste(newSeq, collapse='')
-						updateTextInput(session, inputId=paste0(controlId, 'NTs'), value=paste(newSeq, collapse=''))
-					}
-				}
+				vals[[group]][[id]] <- val
+				return(TRUE)
 			}
 		}
-	}, ignoreInit = F)
-	
-	observeEvent(input[[paste0(controlId, 'NTs')]], {
-		if(!is.null(vals$updatingNTCount) && !vals$updatingNTCount && (is.null(vals[[paste0(controlId, 'NTs')]]) || vals[[paste0(controlId, 'NTs')]] != input[[paste0(controlId, 'NTs')]]))
-		{
-			req(mySeq(), input[[paste0(controlId, 'NTs')]])
-			newPrimer <- s2c(input[[paste0(controlId, 'NTs')]])
-			if(length(newPrimer) > 0 && all(newPrimer %in% c('a','g','t','c','A','G','T','C')))
-			{
-				primerStart <- getStartAndLenFromSeq(toUpper(paste(newPrimer, collapse='')), toUpper(paste(mySeq(), collapse='')))
-				primerLen <- length(newPrimer)
-				if(is.finite(primerStart) && primerStart > 0 && primerStart < (length(mySeq()) - (primerLen - 1)))
-				{
-					# update reactive value
-					vals[[paste0(controlId, 'Start')]] <- primerStart
-					vals[[paste0(controlId, 'Len')]] <- primerLen
-					
-					# update linked controls
-					# print(paste("Updating ", controlId, "StartAndLen3", sep=''))
-					updateNumericInput(session, inputId=paste0(controlId, 'Start'), value=primerStart)
-					updateNumericInput(session, inputId=paste0(controlId, 'Len'), value=primerLen)
-				}
-			}
-		}
-		vals$updatingNTCount <- vals$updatingNTCount - 1
-	}, ignoreInit = F)
-	
-	observeEvent(mySeq(), {
-	  req(mySeq(), input[[paste0(controlId, 'NTs')]], input[[paste0(controlId, 'Start')]], input[[paste0(controlId, 'Len')]])
-	  primerStart <- input[[paste0(controlId, 'Start')]]
-	  primerLen <- input[[paste0(controlId, 'Len')]]
-	  if(is.finite(primerStart) && is.finite(primerLen) && primerStart > 0 && primerStart < (length(mySeq()) - (primerLen - 1)))
-	  {
-	    # Then start and len are still legal and just update the sequence to match the new sequence
-	    newPrimer <- mySeq()[primerStart:(primerStart+primerLen-1)]
-	    vals$updatingNTCount <- vals$updatingNTCount + 1
-	    vals[[paste0(controlId, 'NTs')]] <- paste(newPrimer, collapse='')
-	    updateTextInput(session, inputId = paste0(controlId, 'NTs'), value=paste(newPrimer, collapse=''))
-	  }
-	  else 
-	  {
-	    # Then the start or len are illegal and we need to reinitialize all the controls.
-	    # We use the start and len inputs to trigger the update of the NTs box
-	    indexes <- c(2,3,4,0,7,6,5,0,0,0)
-	    names <- c('F3','F2','F1','LFc','B3c','B2c','B1c','LB','PNAF','PNABc')
-	    thisIndex <- indexes[which(controlId == names)]
-	    theStart <- ifelse(thisIndex > 0, initLocs()[thisIndex], 1)
-	    theEnd <- ifelse(length(mySeq()) >= (theStart + primerLen - 1), theStart + primerLen -1, length(mySeq()))
-	    theLen <- theEnd-theStart+1
-	    theSeq <- mySeq()[theStart:theEnd]
-	    updateNumericInput(session, inputId=paste0(controlId, 'Start'), value=theStart)
-	    updateNumericInput(session, inputId=paste0(controlId, 'Len'), value=theLen)
-	  }
-	}, ignoreInit = F)
-	
-	observeEvent(list(input[[paste0(controlId, 'Check')]], vals$DBAll), {
-		# Highlight output
-		# print(paste("Marking ", controlId, ": ", input[[paste0(controlId, "NTs")]]))
-		req(!is.null(input$Seq), !is.null(input$F3Check), !is.null(input$F2Check), !is.null(input$F1Check), !is.null(input$LFcCheck), !is.null(input$LBCheck), !is.null(input$B3cCheck), !is.null(input$B2cCheck), !is.null(input$B1cCheck), !is.null(input$PNAFCheck), !is.null(input$PNABcCheck))
-		my_marker <- marker$new("#text-to-mark")
-		my_marker$unmark()
-		if(input$F3Check){ my_marker$mark(input[[paste0("F3", "NTs")]], element=paste0("markF3")) }
-		if(input$F2Check){ my_marker$mark(input[[paste0("F2", "NTs")]], element=paste0("markF2")) }
-		if(input$LFcCheck){ my_marker$mark(input[[paste0("LFc", "NTs")]], element=paste0("markLFc")) }
-		if(input$F1Check){ my_marker$mark(input[[paste0("F1", "NTs")]], element=paste0("markF1")) }
-		if(input$B1cCheck){ my_marker$mark(input[[paste0("B1c", "NTs")]], element=paste0("markB1c")) }
-		if(input$LBCheck){ my_marker$mark(input[[paste0("LB", "NTs")]], element=paste0("markLB")) }
-		if(input$B2cCheck){ my_marker$mark(input[[paste0("B2c", "NTs")]], element=paste0("markB2c")) }
-		if(input$B3cCheck){ my_marker$mark(input[[paste0("B3c", "NTs")]], element=paste0("markB3c")) }
-		if(input$PNAFCheck){ my_marker$mark(input[[paste0("PNAF", "NTs")]], element=paste0("markPNAF")) }
-		if(input$PNABcCheck){ my_marker$mark(input[[paste0("PNABc", "NTs")]], element=paste0("markPNABc")) }
-	}, ignoreInit = F)
+	}
+}
+
+getValStart <- function(id, vals)
+{
+	return(vals[[Start]][[id]])
+}
+
+getValEnd <- function(id, vals)
+{
+	return(vals[['Start']][[id]] + vals[['Len']][[id]] - 1)
 }
 
 getStart <- function(input, controlId)
@@ -673,303 +671,522 @@ getEnd <- function(input, controlId)
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
-	
-	vals <- reactiveValues(results=NULL,
-								  DBAll=NULL,
+
+	vals <- reactiveValues(
+								  # NTs=list(),
+								  # Start=list(),
+								  # Len=list(),
+								  # results=NULL,
+								  # DBAll=NULL,
 								  updatingNTCount=0,
-								  updatingStartOrLenCount=0)
-	
-	mySeq <- reactive({
-		temp <- s2c(input$Seq)
-	  temp[temp %in% c('a','g','t','c','A','G','T','C')]
-	})
+								  updatingStartOrLenCount=0,
+								  render=1)
 	
 	mySeqHTML <- reactive({
-		markup=p(id='text-to-mark', input$Seq)
+		req(vals$seq)
+		markup=p(id='text-to-mark', style = "word-wrap: break-word;", paste(vals$seq, collapse=''))
+	})
+	
+	fullHairpinEnergy <- reactive({
+		req(vals$seq, allLegal())
+		print("Updating hairpin energy plot.")
+		rollapply(vals$seq, width=25, FUN=function(x){return(fold(x)$dg)}, partial=T, align='center')
+	})
+	
+	fullGC <- reactive({
+		req(vals$seq)
+		print("Updating fullGC.")
+		gc <- vals$seq %in% c("g","G","c","C")
+		rollapply(gc, width=20, FUN=mean, partial=T, align='center')
 	})
 	
 	initLocs <- reactive({
-		req(mySeq())
-		return(round(seq(1, length(mySeq())-20, length.out=8)))
+		req(vals$seq)
+		print("Updating initLocs.")
+		return(round(seq(1, length(vals$seq)-20, length.out=8)))
 	})
 	
-	output$coloredSeq <- renderUI(mySeqHTML())
+	output$coloredSeq <- renderUI({
+		req(mySeqHTML())
+		print("Rendering HTML Seq.")
+		mySeqHTML()
+	})
 	
-	output$F3 <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'F3', mySeq, initLocs=initLocs(), Loc=2)))
-	output$F2 <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'F2', mySeq, initLocs=initLocs(), Loc=3)))
-	output$LFc <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'LFc', mySeq, initLocs=initLocs(), Loc=0)))
-	output$F1 <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'F1', mySeq, initLocs=initLocs(), Loc=4)))
-	output$B1c <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'B1c', mySeq, initLocs=initLocs(), Loc=5)))
-	output$LB <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'LB', mySeq, initLocs=initLocs(), Loc=0)))
-	output$B2c <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'B2c', mySeq, initLocs=initLocs(), Loc=6)))
-	output$B3c <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'B3c', mySeq, initLocs=initLocs(), Loc=7)))
-	output$PNAF <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'PNAF', mySeq, initLocs=initLocs(), Loc=0)))
-	output$PNABc <- renderUI(isolate(renderPrimerControl(input, output, session, vals, 'PNABc', mySeq, initLocs=initLocs(), Loc=0)))
+	observeEvent( list(vals$seq, vals$render > 0),{
+		req(vals$seq)
+		print("Rendering primer controls.")
+		if(calcLen(vals$seq)==0){vals$render <- vals$render + 1}
+		output$F3 <- renderUI(isolate(renderPrimerControl(vals$seq, 'F3', initLocs=initLocs(), Loc=2)))
+		output$F2 <- renderUI(isolate(renderPrimerControl(vals$seq, 'F2', initLocs=initLocs(), Loc=3)))
+		output$LFc <- renderUI(isolate(renderPrimerControl(vals$seq, 'LFc', initLocs=initLocs(), Loc=0)))
+		output$F1 <- renderUI(isolate(renderPrimerControl(vals$seq, 'F1', initLocs=initLocs(), Loc=4)))
+		output$B1c <- renderUI(isolate(renderPrimerControl(vals$seq, 'B1c', initLocs=initLocs(), Loc=5)))
+		output$LB <- renderUI(isolate(renderPrimerControl(vals$seq, 'LB', initLocs=initLocs(), Loc=0)))
+		output$B2c <- renderUI(isolate(renderPrimerControl(vals$seq, 'B2c', initLocs=initLocs(), Loc=6)))
+		output$B3c <- renderUI(isolate(renderPrimerControl(vals$seq, 'B3c', initLocs=initLocs(), Loc=7)))
+		output$PNAF <- renderUI(isolate(renderPrimerControl(vals$seq, 'PNAF', initLocs=initLocs(), Loc=0)))
+		output$PNABc <- renderUI(isolate(renderPrimerControl(vals$seq, 'PNABc', initLocs=initLocs(), Loc=0)))
+		# print(vals$render)
+		if(all(sapply(sensePrimerNames, function(x){calcLen(input[[paste(x, 'NTs', sep='')]]) > 0}))){
+			vals$render <- 0
+		}
+	})
 	
-	setUpControlLinks(input, output, session, vals, 'F3', mySeq, initLocs)
-	setUpControlLinks(input, output, session, vals, 'F2', mySeq, initLocs)
-	setUpControlLinks(input, output, session, vals, 'LFc', mySeq, initLocs)
-	setUpControlLinks(input, output, session, vals, 'F1', mySeq, initLocs)
-	setUpControlLinks(input, output, session, vals, 'B1c', mySeq, initLocs)
-	setUpControlLinks(input, output, session, vals, 'LB', mySeq, initLocs)
-	setUpControlLinks(input, output, session, vals, 'B2c', mySeq, initLocs)
-	setUpControlLinks(input, output, session, vals, 'B3c', mySeq, initLocs)
-	setUpControlLinks(input, output, session, vals, 'PNAF', mySeq, initLocs)
-	setUpControlLinks(input, output, session, vals, 'PNABc', mySeq, initLocs)
+	observeEvent(list(mySeqHTML(), getInputs(sensePrimerNames, 'NTs', input), getInputs(sensePrimerNames, 'Check', input)), {
+		# Highlight output
+		# print(paste("Marking ", controlId, ": ", input[[paste0(controlId, "NTs")]]))
+		req(mySeqHTML(), all(sapply(sensePrimerNames, function(x){!is.null(vals$NTs[[x]])})), all(sapply(sensePrimerNames, function(x){!is.null(vals$Check[[x]])})))
+		print("Updating markers")
+		my_marker <- marker$new("#text-to-mark")
+		my_marker$unmark()
+		# browser()
+		if(input$F3Check){ my_marker$mark(input[[paste0("F3", "NTs")]], element=paste0("markF3")) }
+		if(input$F2Check){ my_marker$mark(input[[paste0("F2", "NTs")]], element=paste0("markF2")) }
+		if(input$LFcCheck){ my_marker$mark(input[[paste0("LFc", "NTs")]], element=paste0("markLFc")) }
+		if(input$F1Check){ my_marker$mark(input[[paste0("F1", "NTs")]], element=paste0("markF1")) }
+		if(input$B1cCheck){ my_marker$mark(input[[paste0("B1c", "NTs")]], element=paste0("markB1c")) }
+		if(input$LBCheck){ my_marker$mark(input[[paste0("LB", "NTs")]], element=paste0("markLB")) }
+		if(input$B2cCheck){ my_marker$mark(input[[paste0("B2c", "NTs")]], element=paste0("markB2c")) }
+		if(input$B3cCheck){ my_marker$mark(input[[paste0("B3c", "NTs")]], element=paste0("markB3c")) }
+		if(input$PNAFCheck){ my_marker$mark(input[[paste0("PNAF", "NTs")]], element=paste0("markPNAF")) }
+		if(input$PNABcCheck){ my_marker$mark(input[[paste0("PNABc", "NTs")]], element=paste0("markPNABc")) }
+	}, ignoreInit = F)
 	
-  sensePrimerNames <- c('F3','F2','F1','LFc','B1c','B2c','B3c','LB','PNAF','PNABc')
+	# setUpControlLinks('F3', mySeq, initLocs)
+	# setUpControlLinks('F2', mySeq, initLocs)
+	# setUpControlLinks('LFc', mySeq, initLocs)
+	# setUpControlLinks('F1', mySeq, initLocs)
+	# setUpControlLinks('B1c', mySeq, initLocs)
+	# setUpControlLinks('LB', mySeq, initLocs)
+	# setUpControlLinks('B2c', mySeq, initLocs)
+	# setUpControlLinks('B3c', mySeq, initLocs)
+	# setUpControlLinks('PNAF', mySeq, initLocs)
+	# setUpControlLinks('PNABc', mySeq, initLocs)
+	
+	sensePrimerNames <- c('F3','F2','F1','LFc','B1c','B2c','B3c','LB','PNAF','PNABc')
+	
+	dependentPrimerNames <- c('F1c', 'B2', 'B3', 'LF', 'LB', 'PNAB', 'FIP', 'BIP', 'DBF', 'DBB')
 	
 	starts <- reactive({
-	  sapply(sensePrimerNames, function(x){getStart(input, x)})
-		# c(getStart(input, 'F3'), 
-		#   getStart(input, 'F2'), 
-		#   getStart(input, 'F1'), 
-		#   getStart(input, 'LFc'), 
-		#   getStart(input, 'B1c'), 
-		#   getStart(input, 'B2c'), 
-		#   getStart(input, 'B3c'), 
-		#   getStart(input, 'LB'), 
-		#   getStart(input, 'PNAF'),
-		#   getStart(input, 'PNABc'))
+		as.numeric(sapply(sensePrimerNames, function(x){vals$Start[[x]]}))
 	})
 	
 	stops <- reactive({
-	  sapply(sensePrimerNames, function(x){getEnd(input, x)})
-		# c(getEnd(input, 'F3'), 
-		#   getEnd(input, 'F2'), 
-		#   getEnd(input, 'F1'), 
-		#   getEnd(input, 'LFc'), 
-		#   getEnd(input, 'B1c'), 
-		#   getEnd(input, 'B2c'), 
-		#   getEnd(input, 'B3c'), 
-		#   getEnd(input, 'LB'), 
-		#   getEnd(input, 'PNAF'),
-		#   getEnd(input, 'PNABc'))
+		as.numeric(sapply(sensePrimerNames, function(x){vals$Start[[x]]}))+as.numeric(lapply(sensePrimerNames, function(x){vals$Len[[x]]}))-1
 	})
 	
 	primerColors <- reactive({
-	  getColor(sensePrimerNames)
-		# c('#99ff99', # F3
-		#   '#66ffff', # F2
-		#   '#ffff66', # F1x
-		#   '#cc99ff', # LFc
-		#   '#ffff66', # B1c
-		#   '#66ffff', # B2c
-		#   '#99ff99', # B3c
-		#   '#cc99ff', # LB
-		#   '#ff3300', # PNAF
-		#   '#ff3300') # PNABc
+		getColor(sensePrimerNames)
 	})
 	
-	# Sense primers
-	F3 <- reactive(input$F3NTs)
-	F2 <- reactive(input$F2NTs)
-	B1c <- reactive(input$B1cNTs)
-	LB <- reactive(input$LBNTs)
-	
-	# Antisense primers
-	B3 <- reactive(revC(input$B3cNTs, keepCase=T))
-	B2 <- reactive(revC(input$B2cNTs, keepCase=T))
-	F1c <- reactive(revC(input$F1NTs, keepCase=T))
-	LF <- reactive(revC(input$LFcNTs, keepCase=T))
-	
-	# Combo primers
-	FIP <- reactive(paste(c(F1c(), rep('t', input$polyT), F2()), collapse=''))
-	BIP <- reactive(paste(c(B1c(), rep('t', input$polyT), B2()), collapse=''))
-	
-	# Amplicon
-	observeEvent(list(input$F3NTs, input$F2NTs, input$F1NTs, input$LFcNTs, input$LBNTs, input$B3cNTs, input$B2cNTs, input$B1cNTs, input$PNAFNTs, input$PNABcNTs), 
-					 {
-					 	req(mySeq(), 
-					 		 input$F3NTs != '', 
-					 		 input$F2NTs != '', 
-					 		 input$F1NTs != '', 
-					 		 input$LFcNTs != '', 
-					 		 input$LBNTs != '', 
-					 		 input$B1cNTs != '', 
-					 		 input$B2cNTs != '', 
-					 		 input$B3cNTs != '', 
-					 		 input$PNAFNTs != '',
-					 		 input$PNABcNTs != '')
-					 	vals$DBAll <- paste(c(F1c(), rep('t', input$polyT), mySeq()[getStart(input, 'F2'):getEnd(input, 'B2c')], rep('t', input$polyT), revC(B1c(), keepCase=T)), collapse='')
-					 }
-	)
-	DBStart <- reactive(getStart(input, 'F2')-input$polyT-(getEnd(input, 'F1')-getStart(input, 'F1')+1))
-	DBEnd <- reactive(getEnd(input, 'B2c')+input$polyT+(getEnd(input, 'B1c')-getStart(input, 'B1c')+1))
-	
-	# PNAs
-	PNAF <- reactive({
-		# If the PNA straddles the start of F2
-		ifelse(getStart(input, 'F2') %in% c(getStart(input, 'PNAF'):getEnd(input, 'PNAF')),
-				 paste(
-				 	{
-				 		# Paste together the upstream portion of FIP with the downstream portion of the PNAF
-				 		FIPN <- length(s2c(FIP()))
-				 		F2N <- input$F2Len
-				 		Offset <- getStart(input, 'F2')-getStart(input, 'PNAF')
-				 		if(getEnd(input, 'PNAF') > getEnd(input, 'F2'))
-				 		{
-				 			stop('Having a PNAF longer than F2 is not supported yet.')
-				 		}
-				 		c(s2c(FIP())[(FIPN-F2N-Offset):(FIPN-F2N)], # Chunk from start of PNAF up to start of F2 in FIP
-				 		  s2c(input$PNAFNTs)[(Offset+1):input$PNAFLen]) # Remaining part of PNAF
-				 	}, 
-				 	collapse=''),
-				 input$PNAFNTs
-		)
-	})
-	PNAB <- reactive({
-		# If the PNA straddles the end of B2c
-		ifelse(getEnd(input, 'B2c') %in% c(getStart(input, 'PNABc'):getEnd(input, 'PNABc')),
-				 paste(
-				 	{
-				 		# Paste together the upstream portion of FIP with the downstream portion of the PNAF
-				 		BIPN <- length(s2c(BIP()))
-				 		B2cN <- input$B2cLen
-				 		Offset <- getEnd(input, 'PNABc')-getEnd(input, 'B2c')
-				 		if(getStart(input, 'PNABc') < getStart(input, 'B2c'))
-				 		{
-				 			stop('Having a PNAB longer than B2 is not supported yet.')
-				 		}
-				 		c(s2c(BIP())[(BIPN-B2cN-Offset):(BIPN-B2cN)], # Chunk from end of PNABc up to end of B2c in BIP
-				 		  revC(s2c(input$PNABcNTs), keepCase=T)[1:(input$PNAFLen-Offset)], keepCase=T) # Remaining (i.e., beginning) part of revC(PNABc)
-				 	}, 
-				 	collapse=''),
-				 revC(input$PNABcNTs, keepCase=T)
-		)
+	observeEvent(list(input$Seq, vals$render > 0), {
+		updateValsItem('seq', {
+			temp <- s2c(input$Seq)
+			temp[temp %in% c('a','g','t','c','A','G','T','C')]
+			if(input$Seq != paste(temp, collapse=''))
+			{
+				warning('Non A, G, T, C, a, g, t, c, characters found. Repairing sequence')
+				if(vals$seq != temp)
+				{
+					vals$seq <- temp
+				}
+				updateTextAreaInput(paste(temp, collapse=''))
+			}
+			# print(temp)
+			temp
+		}, vals)
 	})
 	
-	# Dumbbell regions
-	DBF <- reactive(paste(c(rep('t', input$polyT), mySeq()[getStart(input, 'F2'):(getStart(input, 'F1')-1)]), collapse=''))
-	DBB <- reactive(paste(c(rep('t', input$polyT), mySeq()[getEnd(input, 'B2c'):(getEnd(input, 'B1c')-1)]), collapse=''))
+	# Watch all the inputs and create a ground truth stored version of everything
+	observeEvent(list(vals$seq, vals$polyT, getInputs(sensePrimerNames, 'NTs', input)), {
+		tempPNABc <- input$PNABc
+		do.call('req', getInputs(sensePrimerNames, 'NTs', input))
+		req(vals$seq, vals$polyT)
+		lapply(sensePrimerNames, updateValsGroupItem, group='NTs', input=input, vals=vals)
+		updateValsItem('F1c', revC(vals$NTs$F1, keepCase=T), vals, group='NTs')
+		updateValsItem('B2', revC(vals$NTs$B2c, keepCase=T), vals, group='NTs')
+		updateValsItem('B3', revC(vals$NTs$B3c, keepCase=T), vals, group='NTs')
+		updateValsItem('LF', revC(vals$NTs$LFc, keepCase=T), vals, group='NTs')
+		updateValsItem('LB', vals$NTs$LB, vals, group='NTs')
+		updateValsItem('FIP', {
+			paste(c(vals$NTs$F1c, rep('t', vals$polyT), vals$NTs$F2), collapse='')	
+		}, vals, group='NTs')
+		updateValsItem('BIP', {
+			paste(c(vals$NTs$B1c, rep('t', vals$polyT), vals$NTs$B2), collapse='')	
+		}, vals, group='NTs')
+		updateValsItem('DBF', paste(c(rep('t', vals$polyT), vals$seq[vals$Start$F2:(vals$Start$F1-1)]), collapse=''), vals, group='NTs')
+		updateValsItem('DBB', paste(c(rep('t', vals$polyT), vals$seq[getValEnd('B2c', vals):(getValEnd('B1c', vals)+1)]), collapse=''), vals, group='NTs')
+		updateValsItem('PNAF', {
+			# If the PNA straddles the start of F2
+			ifelse(vals$Start$PNAF < vals$Start$F2 && getValEnd('PNAF', vals) >= vals$Start$F2, 
+					 paste(
+					 	{
+					 		# Paste together the upstream portion of FIP with the downstream portion of the PNAF
+					 		FIPN <- length(vals$NTs$FIP)
+					 		F2N <- vals$Len$F2
+					 		Offset <- vals$Start$F2-vals$Start$PNAF
+					 		if(getValEnd('PNAF', vals) > getValEnd('F2', vals))
+					 		{
+					 			warning('Having a PNAF longer than F2 is not supported yet.')
+					 			updateTextInput(session, 'PNAFNTs', vals$NTs$PNAF)
+					 			s2c(vals$NTs$PNAF) # Don't change anything
+					 		}
+					 		else
+					 		{
+					 			c(vals$NTs$FIP[(FIPN-F2N-Offset):(FIPN-F2N)], # Chunk from start of PNAF up to start of F2 in FIP
+					 			  vals$NTsPNAF[(Offset+1):vals$Len$PNAF]) # Remaining part of PNAF
+					 		}
+					 	}, 
+					 	collapse=''),
+					 vals$NTs$PNAF
+			)
+		}, vals, group='NTs')
+		updateValsItem('PNAB', {
+			# If the PNA straddles the end of B2c
+			ifelse(vals$Start$PNABc < getValEnd('B2c', vals) && getValEnd('PNABc', vals) >= getValEnd('B2c', vals), 
+					 paste(
+					 	{
+					 		# Paste together the upstream portion of FIP with the downstream portion of the PNAF
+					 		BIPN <- length(vals$NTs$BIP)
+					 		B2cN <- vals$Len$B2c
+					 		Offset <- getValEnd('PNABc', vals)-getValEnd('B2c', vals)
+					 		if(vals$Start$PNABc < vals$Start$B2c)
+					 		{
+					 			stop('Having a PNAB longer than B2 is not supported yet.')
+					 			# Reset the source PNABc value to what it was before this observed event
+					 			vals$NTs$PNABc <- tempPNABc
+					 			# Reset the input to the same value
+					 			updateTextInput(session, 'PNABcNTs', tempPNABc)
+					 			s2c(vals$NTs$PNAB) # Don't change anything by returning the same value
+					 		}
+					 		else
+					 		{
+					 			c(vals$NTs$BIP[(BIPN-B2cN-Offset):(BIPN-B2cN)], # Chunk from end of PNABc up to end of B2c in BIP
+					 			  revC(vals$NTs$PNABc, keepCase=T)[1:(vals$Len$PNABc-Offset)], keepCase=T) # Remaining (i.e., beginning) part of revC(PNABc)
+					 		}
+					 	}, 
+					 	collapse=''),
+					 revC(vals$NTs$PNABc, keepCase=T))
+		}, vals, group='NTs')
+		updateValsItem('DBAll', {
+			paste(c(vals$NTs$F1c, rep('t', input$polyT), vals$seq[vals$Start$F2:getValEnd('B2c', vals)], rep('t', input$polyT), revC(vals$NTs$B1c, keepCase=T)), collapse='')
+		}, vals)
+		updateValsItem('DBStart', vals$Start$F2-vals$polyT-vals$Len$F1, vals)
+		updateValsItem('DBEnd', (vals$Start$B2c + vals$Len$B2c - 1)+vals$polyT+vals$Len$B1c, vals)
+	})
+	
+	observeEvent(getInputs(sensePrimerNames, 'Start', input), {
+		do.call('req', getInputs(sensePrimerNames, 'Start', input))
+		lapply(sensePrimerNames, updateValsGroupItem, group='Start', input=input, vals)
+	})
+	
+	observeEvent(getInputs(sensePrimerNames, 'Len', input), {
+		do.call('req', getInputs(sensePrimerNames, 'Len', input))
+		lapply(sensePrimerNames, updateValsGroupItem, group='Len', input=input, vals)
+	})
+	
+	observeEvent(getInputs(sensePrimerNames, 'Check', input), {
+		do.call('req', getInputs(sensePrimerNames, 'Check', input))
+		lapply(sensePrimerNames, updateValsGroupItem, group='Check', input=input, vals)
+	})
+	
+	observeEvent(input$polyT, {
+		updateValsItem('polyT', input$polyT, vals)
+	})
+	
+	observeEvent(list(vals$Check, vals$NTs), {
+		# Highlight output
+		# print(paste("Marking ", controlId, ": ", input[[paste0(controlId, "NTs")]]))
+		
+		req(!is.null(vals$seq), !is.null(vals$Check), length(vals$Check) > 0)
+		my_marker <- marker$new("#text-to-mark")
+		my_marker$unmark()
+		if(input$F3Check){ my_marker$mark(input[[paste0("F3", "NTs")]], element=paste0("markF3")) }
+		if(input$F2Check){ my_marker$mark(input[[paste0("F2", "NTs")]], element=paste0("markF2")) }
+		if(input$LFcCheck){ my_marker$mark(input[[paste0("LFc", "NTs")]], element=paste0("markLFc")) }
+		if(input$F1Check){ my_marker$mark(input[[paste0("F1", "NTs")]], element=paste0("markF1")) }
+		if(input$B1cCheck){ my_marker$mark(input[[paste0("B1c", "NTs")]], element=paste0("markB1c")) }
+		if(input$LBCheck){ my_marker$mark(input[[paste0("LB", "NTs")]], element=paste0("markLB")) }
+		if(input$B2cCheck){ my_marker$mark(input[[paste0("B2c", "NTs")]], element=paste0("markB2c")) }
+		if(input$B3cCheck){ my_marker$mark(input[[paste0("B3c", "NTs")]], element=paste0("markB3c")) }
+		if(input$PNAFCheck){ my_marker$mark(input[[paste0("PNAF", "NTs")]], element=paste0("markPNAF")) }
+		if(input$PNABcCheck){ my_marker$mark(input[[paste0("PNABc", "NTs")]], element=paste0("markPNABc")) }
+	}, ignoreInit = F)
+	
+	observeEvent(input$stabilityN, {
+		
+		updateValsItem('stabilityN', input$stabilityN, vals)	
+	})
+	
+	# # Dumbbell regions
+	# DBF <- reactive(paste(c(rep('t', vals$polyT), mySeq()[getStart(input, 'F2'):(getStart(input, 'F1')-1)]), collapse=''))
+	# DBB <- reactive(paste(c(rep('t', input$polyT), mySeq()[getEnd(input, 'B2c'):(getEnd(input, 'B1c')-1)]), collapse=''))
+	
+	# # Combo primers
+	# FIP <- reactive(paste(c(F1c(), rep('t', input$polyT), F2()), collapse=''))
+	# BIP <- reactive(paste(c(B1c(), rep('t', input$polyT), B2()), collapse=''))
+	
+	# # PNAs
+	# PNAF <- reactive({
+	# 	# If the PNA straddles the start of F2
+	# 	ifelse(getStart(input, 'F2') %in% c(getStart(input, 'PNAF'):getEnd(input, 'PNAF')),
+	# 			 paste(
+	# 			 	{
+	# 			 		# Paste together the upstream portion of FIP with the downstream portion of the PNAF
+	# 			 		FIPN <- length(s2c(FIP()))
+	# 			 		F2N <- input$F2Len
+	# 			 		Offset <- getStart(input, 'F2')-getStart(input, 'PNAF')
+	# 			 		if(getEnd(input, 'PNAF') > getEnd(input, 'F2'))
+	# 			 		{
+	# 			 			stop('Having a PNAF longer than F2 is not supported yet.')
+	# 			 		}
+	# 			 		c(s2c(FIP())[(FIPN-F2N-Offset):(FIPN-F2N)], # Chunk from start of PNAF up to start of F2 in FIP
+	# 			 		  s2c(input$PNAFNTs)[(Offset+1):input$PNAFLen]) # Remaining part of PNAF
+	# 			 	}, 
+	# 			 	collapse=''),
+	# 			 input$PNAFNTs
+	# 	)
+	# })
+	# PNAB <- reactive({
+	# 	# If the PNA straddles the end of B2c
+	# 	ifelse(getEnd(input, 'B2c') %in% c(getStart(input, 'PNABc'):getEnd(input, 'PNABc')),
+	# 			 paste(
+	# 			 	{
+	# 			 		# Paste together the upstream portion of FIP with the downstream portion of the PNAF
+	# 			 		BIPN <- length(s2c(BIP()))
+	# 			 		B2cN <- input$B2cLen
+	# 			 		Offset <- getEnd(input, 'PNABc')-getEnd(input, 'B2c')
+	# 			 		if(getStart(input, 'PNABc') < getStart(input, 'B2c'))
+	# 			 		{
+	# 			 			stop('Having a PNAB longer than B2 is not supported yet.')
+	# 			 		}
+	# 			 		c(s2c(BIP())[(BIPN-B2cN-Offset):(BIPN-B2cN)], # Chunk from end of PNABc up to end of B2c in BIP
+	# 			 		  revC(s2c(input$PNABcNTs), keepCase=T)[1:(input$PNAFLen-Offset)], keepCase=T) # Remaining (i.e., beginning) part of revC(PNABc)
+	# 			 	}, 
+	# 			 	collapse=''),
+	# 			 revC(input$PNABcNTs, keepCase=T)
+	# 	)
+	# })
+	
+	# Now feed the ground truth out to inputs as necessary (if value in values in vals already matches, no additional triggers will setoff)
+	# Feed NT values if Start input values change
+	observeEvent(vals$Start, {
+		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$Start[[x]])})))
+		for(controlId in sensePrimerNames)
+		{
+			bpStart <- vals$Start[[controlId]]
+			bpEnd <- (vals$Start[[controlId]]+vals$Len[[controlId]]-1)
+			if(length(bpStart) != 1)
+			{
+				browser()
+			}
+			bp <- seq(from=bpStart, to=bpEnd)
+			temp <- vals$seq[bp]
+			if(getInput(controlId, 'NTs', input) != paste(temp, collapse=''))
+			{
+				if(vals$NTs[[controlId]] != paste(temp, collapse=''))
+				{
+					updateValsItem(controlId, paste(temp, collapse=''), vals, group='NTs')
+				}
+				vals$updatingNTCount <- vals$updatingNTCount + 1
+				updateTextInput(session, paste0(controlId, 'NTs'), value=paste(temp, collapse=''))
+			}
+		}
+	})
+	
+	# Feed NT values if Len input values change
+	observeEvent(vals$Len, {
+		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$Len[[x]])})))
+		for(controlId in sensePrimerNames)
+		{
+			bpStart <- vals$Start[[controlId]]
+			bpEnd <- (vals$Start[[controlId]]+vals$Len[[controlId]]-1)
+			if(length(bpStart) != 1)
+			{
+				browser()
+			}
+			bp <- seq(from=bpStart, to=bpEnd)
+			temp <- vals$seq[bp]
+			if(any(getInput(controlId, 'NTs', input) != paste(temp, collapse='')))
+			{
+				print('Updating NTs')
+				if(vals$NTs[[controlId]] != paste(temp, collapse=''))
+				{
+					updateValsItem(controlId, paste(temp, collapse=''), vals, group='NTs')
+				}
+				vals$updatingNTCount <- vals$updatingNTCount + 1
+				updateTextInput(session, paste0(controlId, 'NTs'), value=paste(temp, collapse=''))
+			}
+		}
+	})
+	
+	# Feed Start and Len input values if NT values change
+	observeEvent(vals$NTs, {
+		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$NTs[[x]])})))
+		if(!is.null(vals$updatingNTCount) && !vals$updatingNTCount)
+		{
+			for(controlId in sensePrimerNames)
+			{
+				temp <- vals$NTs[[controlId]]
+				start <- getStartFromSeq(temp, paste(vals$seq, collapse=''))
+				len <- calcLen(temp)
+				updated <- FALSE
+				if(any(getInput(controlId, 'Start', input) != start))
+				{
+					print('Updating Start')
+					if(vals$Start[[controlId]] != start)
+					{
+						if(updateValsItem(controlId, start, vals, group='Start'))
+						{
+							updated <- TRUE
+						}
+					}
+					updateNumericInput(session, paste0(controlId, 'Start'), value=start)
+				}
+				if(any(getInput(controlId, 'Len', input) != len))
+				{
+					print('Updating Len')
+					if(vals$Len[[controlId]] != len)
+					{
+						if(updateValsItem(controlId, len, vals, group='Len'))
+						{
+							updated <- TRUE
+						}
+					}
+					updateNumericInput(session, paste0(controlId, 'Len'), value=len)
+				}
+				if(updated)
+				{
+					vals$updatingNTsCount <- vals$updatingNTsCount - 1
+				}
+			}
+		}
+	})
 	
 	allLegal <- reactive({
-	  getEnd(input, 'F3') <= length(mySeq()) &&
-	    getEnd(input, 'F2') <= length(mySeq()) &&
-	    getEnd(input, 'F1') <= length(mySeq()) &&
-	    getEnd(input, 'LFc') <= length(mySeq()) &&
-	    getEnd(input, 'B3c') <= length(mySeq()) &&
-	    getEnd(input, 'B2c') <= length(mySeq()) &&
-	    getEnd(input, 'B1c') <= length(mySeq()) &&
-	    getEnd(input, 'LB') <= length(mySeq()) &&
-	    getEnd(input, 'PNAF') <= length(mySeq()) &&
-	    getEnd(input, 'PNABc') <= length(mySeq())
+		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$Start[[x]])})), all(sapply(sensePrimerNames, function(x){!is.null(vals$Len[[x]])})))
+		getValEnd('F3', vals) <= length(vals$seq) &&
+			getValEnd('F2', vals) <= length(vals$seq) &&
+			getValEnd('F1', vals) <= length(vals$seq) &&
+			getValEnd('LFc', vals) <= length(vals$seq) &&
+			getValEnd('B3c', vals) <= length(vals$seq) &&
+			getValEnd('B2c', vals) <= length(vals$seq) &&
+			getValEnd('B1c', vals) <= length(vals$seq) &&
+			getValEnd('LB', vals) <= length(vals$seq) &&
+			getValEnd('PNAF', vals) <= length(vals$seq) &&
+			getValEnd('PNABc', vals) <= length(vals$seq)
 	})
 	
-	observeEvent(list(input$Seq, input$F3NTs, input$F2NTs, input$F1NTs, input$LFcNTs, input$LBNTs, input$B3cNTs, input$B2cNTs, input$B1cNTs, input$PNAFNTs, input$PNABcNTs, input$polyT, input$stabilityN,
-							input$F3Check, input$F2Check, input$F1Check, input$LFcCheck, input$LBCheck, input$B3cCheck, input$B2cCheck, input$B1cCheck, input$PNAFCheck, input$PNABcCheck), {
-								
-								# toInclude <- c(input$F3Check, input$B3Check, T, T, T, T, T, T, input$LFcCheck, input$LBCheck, input$PNACheck, input$PNAcCheck, T, T)
-								req(mySeq(), allLegal(), input$F3NTs != '', input$F2NTs != '', input$LFcNTs != '', input$F1NTs != '', input$B1cNTs != '', input$LBNTs != '', input$B2cNTs != '', input$B3cNTs != '', input$PNAFNTs != '', input$PNABcNTs != '')
-								ret <- data.table(Primer=c('F3','B3','F2','F1c','B2','B1c','FIP','BIP','LF','LB','PNAF','PNAB','DBF','DBB'),
-														Seq=c(F3(), B3(), F2(), F1c(), B2(), B1c(), FIP(), BIP(), LF(), LB(), PNAF(), PNAB(), DBF(), DBB()),
-														Sense=c('Sense','Antisense','Sense','Antisense','Sense','Antisense','NA','NA','Antisense','Sense','Sense','Antisense','Sense','Sense'))
-								ret[, Stability3p:=end_stability(Seq, n=input$stabilityN, threePrimeEnd=T), by='Primer']
-								ret[, Stability5p:=end_stability(Seq, n=input$stabilityN, threePrimeEnd=F), by='Primer']
-								ret[, Start5p:='NA']
-								ret[Primer == 'F3', Start5p:=getStart(input, 'F3')]
-								ret[Primer == 'B3', Start5p:=getEnd(input, 'B3c')]
-								ret[Primer == 'F2', Start5p:=getStart(input, 'F2')]
-								ret[Primer == 'F1c', Start5p:=getEnd(input, 'F1')]
-								ret[Primer == 'B2', Start5p:=getEnd(input, 'B2c')]
-								ret[Primer == 'B1c', Start5p:=getStart(input, 'B1c')]
-								ret[Primer == 'LF', Start5p:=getEnd(input, 'LFc')]
-								ret[Primer == 'LB', Start5p:=getStart(input, 'LB')]
-								ret[Primer == 'PNAF', Start5p:=getStart(input, 'PNAF')]
-								ret[Primer == 'PNAB', Start5p:=getEnd(input, 'PNABc')]
-								ret[, Len:=length(s2c(Seq)), by='Primer']
-								ret[, c('Tm','HpTm','HpDeltaG','HpStruct','HmdTm','HmdDeltaG','HmdStruct'):=getPrimerStats(Seq), by='Primer']
-								ret[Primer %in% c('FIP','BIP'), c('HtdTm','HtdDeltaG','HtdStruct'):=getDimerStats(Seq, ifelse(.BY[[1]]=='FIP', BIP(), FIP())), by='Primer']
-								# ret[Primer %in% c('FIP','BIP'), Tm:='NA']
-								ret[, KeyEndStability:=ifelse(Primer %in% c('F1c','B1c'), Stability5p, Stability3p)]
-								
-								# Data for energy plot
-								ret2 <- melt.data.table(data=ret, id.vars='Primer', measure.vars=c('KeyEndStability','HpDeltaG','HmdDeltaG','HtdDeltaG'))
-								ret2[, value:=suppressWarnings(as.numeric(value))]
-								ret2[value > 0, value:=0]
-								ret2[variable=='KeyEndStability', value:=-1*value]
-								ret2[, Primer:=factor(ret2$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','FIP','BIP','PNAF','PNAB','DBF','DBB'))]
-								
-								# Data for Tm plot
-								ret3 <- ret[, c('Primer','Tm')]
-								ret3[, Tm:=suppressWarnings(as.numeric(Tm))]
-								primerColors <- getPrimerColors()
-								setkey(ret3, Primer)
-								setkey(primerColors, Primer)
-								ret3 <- primerColors[ret3]
-								ret3[, Primer:=factor(ret3$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','PNAF','PNAB','FIP','BIP','DBF','DBB'))]
-								vals$results2 <- ret2
-								vals$results3 <- ret3
-								vals$results <- ret[Primer %in% c('F3',
-																			 'B3',
-																			 'F2',
-																			 'F1c',
-																			 'B2',
-																			 'B1c',
-																			 'LF',
-																			 'LB',
-																			 'PNAF',
-																			 'PNAB',
-																			 'FIP',
-																			 'BIP',
-																			 'DBF',
-																			 'DBB')[
-																			 	c(input$F3Check,
-																			 	  input$B3cCheck,
-																			 	  input$F2Check,
-																			 	  input$F1Check,
-																			 	  input$B2cCheck,
-																			 	  input$B1cCheck,
-																			 	  input$LFcCheck,
-																			 	  input$LBCheck,
-																			 	  input$PNAFCheck,
-																			 	  input$PNABcCheck,
-																			 	  input$F1Check && input$F2Check,
-																			 	  input$B1cCheck && input$B2cCheck,
-																			 	  T,
-																			 	  T)]]
-							})
+	observeEvent(list(vals$NTs, vals$stabilityN, vals$Check), {
+		# toInclude <- c(input$F3Check, input$B3Check, T, T, T, T, T, T, input$LFcCheck, input$LBCheck, input$PNACheck, input$PNAcCheck, T, T)
+		primerNames <- c('F3','B3','F2','F1c','B2','B1c','FIP','BIP','LF','LB','PNAF','PNAB','DBF','DBB')
+		req(vals$seq, allLegal(), all(as.logical(vals$NTs != '')))
+		ret <- data.table(Primer=primerNames,
+								Seq=as.character(sapply(lapply(primerNames, function(x){vals$NTs[[x]]}), paste, collapse='')),
+								Sense=c('Sense','Antisense','Sense','Antisense','Sense','Antisense','NA','NA','Antisense','Sense','Sense','Antisense','Sense','Sense'))
+		ret[, Stability3p:=end_stability(Seq, n=vals$stabilityN, threePrimeEnd=T), by='Primer']
+		ret[, Stability5p:=end_stability(Seq, n=vals$stabilityN, threePrimeEnd=F), by='Primer']
+		ret[, Start5p:='NA']
+		ret[Primer == 'F3', Start5p:=vals$Start$F3]
+		ret[Primer == 'B3', Start5p:=getValEnd('B3c', vals)]
+		ret[Primer == 'F2', Start5p:=vals$Start$F2]
+		ret[Primer == 'F1c', Start5p:=getValEnd('F1', vals)]
+		ret[Primer == 'B2', Start5p:=getValEnd('B2c', vals)]
+		ret[Primer == 'B1c', Start5p:=vals$Start$B1c]
+		ret[Primer == 'LF', Start5p:=getValEnd('LFc', vals)]
+		ret[Primer == 'LB', Start5p:=vals$Start$LB]
+		ret[Primer == 'PNAF', Start5p:=vals$Start$PNAF]
+		ret[Primer == 'PNAB', Start5p:=getValEnd('PNABc', vals)]
+		ret[, Len:=length(s2c(Seq)), by='Primer']
+		ret[, c('Tm','HpTm','HpDeltaG','HpStruct','HmdTm','HmdDeltaG','HmdStruct'):=getPrimerStats(Seq), by='Primer']
+		ret[, c('P2','HtdTm','HtdDeltaG','HtdStruct'):=getHtdStats(.BY[[1]], Seq, func=getDimerStats), by='Primer']
+		# ret[Primer %in% c('FIP','BIP'), Tm:='NA']
+		ret[, KeyEndStability:=ifelse(Primer %in% c('F1c','B1c'), Stability5p, Stability3p)]
+		
+		# Data for energy plot
+		ret2 <- melt.data.table(data=ret, id.vars='Primer', measure.vars=c('KeyEndStability','HpDeltaG','HmdDeltaG','HtdDeltaG'))
+		ret2[, value:=suppressWarnings(as.numeric(value))]
+		ret2[value > 0, value:=0]
+		ret2[variable=='KeyEndStability', value:=-1*value]
+		ret2[, Primer:=factor(ret2$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','FIP','BIP','PNAF','PNAB','DBF','DBB'))]
+		
+		# Data for Tm plot
+		ret3 <- ret[, c('Primer','Tm')]
+		ret3[, Tm:=suppressWarnings(as.numeric(Tm))]
+		primerColors <- getPrimerColors()
+		setkey(ret3, Primer)
+		setkey(primerColors, Primer)
+		ret3 <- primerColors[ret3]
+		ret3[, Primer:=factor(ret3$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','PNAF','PNAB','FIP','BIP','DBF','DBB'))]
+		vals$results2 <- ret2
+		vals$results3 <- ret3
+		vals$results <- ret[Primer %in% primerNames[
+			c(vals$Check$F3,
+			  vals$Check$B3c,
+			  vals$Check$F2,
+			  vals$Check$F1,
+			  vals$Check$B2c,
+			  vals$Check$B1c,
+			  vals$Check$LFc,
+			  vals$Check$LB,
+			  vals$Check$PNAF,
+			  vals$Check$PNABc,
+			  vals$Check$F1 && vals$Check$F2,
+			  vals$Check$B1c && vals$Check$B2c,
+			  T,
+			  T)]]
+	})
 	
-	observeEvent(list(mySeq(), c(starts(), stops())), {
+	observeEvent(list(vals$seq, vals$NTs), {
 		output$HairpinPlot <- renderPlot({
-			req(mySeq(), vals$DBAll, vals$results2, calcLen(vals$DBAll) == (DBEnd()-DBStart()+1))
-			plotHairpin(mySeq(),
+			req(vals$seq, vals$DBAll, calcLen(vals$DBAll) == (vals$DBEnd-vals$DBStart+1))
+			plotHairpin(vals$seq,
+							fullHairpinEnergy=isolate(fullHairpinEnergy()),
 							dbSeq = isolate(vals$DBAll),
-							dbStart = isolate(DBStart()),
-							dbEnd = isolate(DBEnd()),
+							dbStart = isolate(vals$DBStart),
+							dbEnd = isolate(vals$DBEnd),
 							starts = isolate(starts()), 
 							ends   = isolate(stops()),
 							colors = isolate(primerColors()))
 		})
 		
 		output$GCPlot <- renderPlot({
-			req(mySeq(), vals$DBAll, vals$results2, calcLen(vals$DBAll) == (DBEnd()-DBStart()+1))
-			plotGC(seq = mySeq(),
+			req(vals$seq, vals$DBAll, vals$results2, calcLen(vals$DBAll) == (vals$DBEnd-vals$DBStart+1))
+			plotGC(seq = vals$seq,
+					 fullGC = isolate(fullGC()),
 					 dbSeq = isolate(vals$DBAll),
-					 dbStart = isolate(DBStart()),
-					 dbEnd = isolate(DBEnd()),
+					 dbStart = isolate(vals$DBStart),
+					 dbEnd = isolate(vals$DBEnd),
 					 starts = isolate(starts()), 
 					 ends   = isolate(stops()),
 					 colors = isolate(primerColors()))
 		})
 		
 		output$EnergyPlot <- renderPlot({
-			req(mySeq(), vals$results2) # 
+			req(vals$results2) # 
 			ggplot(data=vals$results2[!is.na(value) & variable != 'KeyEndStability'], aes( x=Primer, y=value, fill=variable)) +
 				geom_col() +
 				geom_col(data=vals$results2[!is.na(value) & variable == 'KeyEndStability']) +
 				geom_hline(yintercept=c(4,-4)) +
 				labs(x='Sequence', y='Energy [kJ/mol]') +
-				scale_y_continuous(limits=c(-20,10),oob = rescale_none)
+				scale_y_continuous(limits=c(-25,10),oob = rescale_none) +
+				theme(axis.text=element_text(size=rel(2.0)),
+						axis.title=element_text(size=rel(2.0)),
+						legend.text=element_text(size=rel(2.0)),
+						legend.title=element_text(size=rel(2.0)))
 		})
 		
 		output$TmPlot <- renderPlot({
-			req(mySeq(), vals$results3)
+			req(vals$results3)
 			ggplot(data=vals$results3, aes(x=Primer, y=Tm, fill=Primer)) + 
 				geom_col() +
-			  scale_fill_manual(values = getColor(as.character(levels(vals$results3$Primer)))) + 
+				scale_fill_manual(values = getColor(as.character(levels(vals$results3$Primer)))) + 
 				geom_hline(yintercept=c(50,60,70)) +
-				scale_y_continuous(limits=c(40,80),oob = rescale_none)
+				scale_y_continuous(limits=c(40,80),oob = rescale_none) +
+				theme(axis.text=element_text(size=rel(2.0)),
+						axis.title=element_text(size=rel(2.0)),
+						legend.text=element_text(size=rel(2.0)),
+						legend.title=element_text(size=rel(2.0)))
 		})
 	})
 	
@@ -983,8 +1200,41 @@ server <- function(input, output, session) {
 	})
 	
 	output$ResultsTable <- renderTable({
-		req(mySeq(), vals$results)
-		return(vals$results)
+		req(vals$results)
+		vals$results
+	})
+	
+	observeEvent(input$importButton, {
+		x <- read.clipboard(header=F)
+		x <- x[x[[1]] %in% c('F1','F1c','F2','F2c','F3','F3c','B1','B1c','B2','B2c','B3','B3c','PNAF','PNAFc','PNAB','PNABc','LF','LFc','LB','LBc')]
+		if(nrow(x) == 0)
+		{
+			warning("First column should contain the name of the primer type (e.g., F3 etc). Re-copy primer information.")
+		}
+		else if(ncol(x) != 3)
+		{
+			warning("Please copy just the primer name column and the start and end position columns (3 columns total). Re-copy primer information.")
+		}
+		else
+		{
+			primerColName <- names(x)[1]
+			startColName <- names(x)[2]
+			endColName <- names(x)[3]
+			x[, isRC:=grepl('[c]', get(primerColName))]
+			x[, isSense:=get(primerColName) %in% c('F1','F1c','F2','F2c','F3','F3c','PNAF','PNAFc','LB','LBc')]
+			# x[, seq:=paste(vars$seq[get(startColName):get(endColName)], collapse=''), by=c(primerColName)]
+			# x[isRC & isSense, seq:=revC(seq, keepCase=T), by=c(primerColName)]
+			x[isRC & isSense, c(primerColName):=gsub('[c]', '', get(primerColName))]
+			# x[!isRC & !isSense, seq:=revC(seq, keepCase=T), by=c(primerColName)]
+			x[!isRC & !isSense, c(primerColName):=paste(get(primerColName), 'c', sep='')]
+			# browser()
+			x[get(primerColName) %in% c('F1','F2','F3','B1c','B2c','B3c','PNAF','PNABc','LFc','LB')]
+			for(i in 1:nrow(x))
+			{
+				updateValsItem(x[i][[primerColName]], x[i][[startColName]], vals, group='Start')
+				updateValsItem(x[i][[primerColName]], x[i][[endColName]], vals, group='Start')
+			}
+		}
 	})
 	
 	output$download <- downloadHandler(
@@ -994,10 +1244,10 @@ server <- function(input, output, session) {
 		}
 	)
 	
-	observe({
-		updateCheckboxInput(session, inputId='F3Check', value=F)
-		updateCheckboxInput(session, inputId='F3Check', value=T)
-	})
+	# observe({
+	# 	updateCheckboxInput(session, inputId='F3Check', value=F)
+	# 	updateCheckboxInput(session, inputId='F3Check', value=T)
+	# })
 }
 
 # Run the application 
