@@ -647,6 +647,7 @@ updateValsItem <- function(id, val, vals, group=NULL)
 			}
 		}
 	}
+	return(FALSE)
 }
 
 getValStart <- function(id, vals)
@@ -679,7 +680,8 @@ server <- function(input, output, session) {
 								  # results=NULL,
 								  # DBAll=NULL,
 								  updatingNTCount=0,
-								  updatingStartOrLenCount=0,
+								  updatingStartCount=0,
+								  updatingLenCount=0,
 								  render=1)
 	
 	mySeqHTML <- reactive({
@@ -972,57 +974,80 @@ server <- function(input, output, session) {
 	# Feed NT values if Start input values change
 	observeEvent(vals$Start, {
 		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$Start[[x]])})))
-		for(controlId in sensePrimerNames)
+		if(!is.null(vals$updatingStartCount) && !vals$updatingStartCount)
 		{
-			bpStart <- vals$Start[[controlId]]
-			bpEnd <- (vals$Start[[controlId]]+vals$Len[[controlId]]-1)
-			if(length(bpStart) != 1)
+			for(controlId in sensePrimerNames)
 			{
-				browser()
-			}
-			bp <- seq(from=bpStart, to=bpEnd)
-			temp <- vals$seq[bp]
-			if(getInput(controlId, 'NTs', input) != paste(temp, collapse=''))
-			{
-				if(vals$NTs[[controlId]] != paste(temp, collapse=''))
+				bpStart <- vals$Start[[controlId]]
+				bpEnd <- (vals$Start[[controlId]]+vals$Len[[controlId]]-1)
+				if(length(bpStart) != 1)
 				{
-					updateValsItem(controlId, paste(temp, collapse=''), vals, group='NTs')
+					browser()
 				}
-				vals$updatingNTCount <- vals$updatingNTCount + 1
-				updateTextInput(session, paste0(controlId, 'NTs'), value=paste(temp, collapse=''))
+				bp <- seq(from=bpStart, to=bpEnd)
+				temp <- paste(vals$seq[bp], collapse='')
+				if(getInput(controlId, 'NTs', input) != temp)
+				{
+					print('Updating NTs')
+					if(updateValsItem(controlId, temp, vals, group='NTs'))
+					{
+						vals$updatingNTCount <- vals$updatingNTCount + 1
+						updateTextInput(session, paste0(controlId, 'NTs'), value=temp)
+					}
+				}
 			}
+		} else if(vals$updatingStartCount > 0) {
+			vals$updatingStartCount <- vals$updatingStartCount - 1
 		}
 	})
 	
 	# Feed NT values if Len input values change
 	observeEvent(vals$Len, {
 		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$Len[[x]])})))
-		for(controlId in sensePrimerNames)
+		if(!is.null(vals$updatingLenCount) && !vals$updatingLenCount)
 		{
-			bpStart <- vals$Start[[controlId]]
-			bpEnd <- (vals$Start[[controlId]]+vals$Len[[controlId]]-1)
-			if(length(bpStart) != 1)
+			for(controlId in sensePrimerNames)
 			{
-				browser()
-			}
-			bp <- seq(from=bpStart, to=bpEnd)
-			temp <- vals$seq[bp]
-			if(any(getInput(controlId, 'NTs', input) != paste(temp, collapse='')))
-			{
-				print('Updating NTs')
-				if(vals$NTs[[controlId]] != paste(temp, collapse=''))
+				bpStart <- vals$Start[[controlId]]
+				bpEnd <- (vals$Start[[controlId]]+vals$Len[[controlId]]-1)
+				if(length(bpStart) != 1)
 				{
-					updateValsItem(controlId, paste(temp, collapse=''), vals, group='NTs')
+					browser()
 				}
-				vals$updatingNTCount <- vals$updatingNTCount + 1
-				updateTextInput(session, paste0(controlId, 'NTs'), value=paste(temp, collapse=''))
+				bp <- seq(from=bpStart, to=bpEnd)
+				temp <- paste(vals$seq[bp], collapse='')
+				# if(any(getInput(controlId, 'NTs', input) != temp))
+				# {
+				# 	print('Updating NTs')
+				# 	if(vals$NTs[[controlId]] != temp)
+				# 	{
+				# 		updateValsItem(controlId, temp, vals, group='NTs')
+				# 	}
+				# 	vals$updatingNTCount <- vals$updatingNTCount + 1
+				# 	updateTextInput(session, paste0(controlId, 'NTs'), value=temp)
+				# }
+				if(getInput(controlId, 'NTs', input) != temp)
+				{
+					print('Updating NTs')
+					if(updateValsItem(controlId, temp, vals, group='NTs'))
+					{
+						vals$updatingNTCount <- vals$updatingNTCount + 1
+						updateTextInput(session, paste0(controlId, 'NTs'), value=temp)
+					}
+				}
 			}
+		} else if(vals$updatingLenCount > 0) {
+			vals$updatingLenCount <- vals$updatingLenCount - 1
 		}
 	})
 	
 	# Feed Start and Len input values if NT values change
 	observeEvent(vals$NTs, {
 		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$NTs[[x]])})))
+		if(vals$updatingNTCount)
+		{
+			print(vals$updatingNTCount)
+		}
 		if(!is.null(vals$updatingNTCount) && !vals$updatingNTCount)
 		{
 			for(controlId in sensePrimerNames)
@@ -1030,7 +1055,6 @@ server <- function(input, output, session) {
 				temp <- vals$NTs[[controlId]]
 				start <- getStartFromSeq(temp, paste(vals$seq, collapse=''))
 				len <- calcLen(temp)
-				updated <- FALSE
 				if(any(getInput(controlId, 'Start', input) != start))
 				{
 					print('Updating Start')
@@ -1038,10 +1062,10 @@ server <- function(input, output, session) {
 					{
 						if(updateValsItem(controlId, start, vals, group='Start'))
 						{
-							updated <- TRUE
+							vals$updatingStartCount <- vals$updatingStartCount + 1
+							updateNumericInput(session, paste0(controlId, 'Start'), value=start)
 						}
 					}
-					updateNumericInput(session, paste0(controlId, 'Start'), value=start)
 				}
 				if(any(getInput(controlId, 'Len', input) != len))
 				{
@@ -1050,16 +1074,14 @@ server <- function(input, output, session) {
 					{
 						if(updateValsItem(controlId, len, vals, group='Len'))
 						{
-							updated <- TRUE
+							vals$updatingLenCount <- vals$updatingLenCount + 1
+							updateNumericInput(session, paste0(controlId, 'Len'), value=len)
 						}
 					}
-					updateNumericInput(session, paste0(controlId, 'Len'), value=len)
-				}
-				if(updated)
-				{
-					vals$updatingNTsCount <- vals$updatingNTsCount - 1
 				}
 			}
+		} else if(vals$updatingNTCount > 0) {
+			vals$updatingNTCount <- vals$updatingNTCount - 1
 		}
 	})
 	
@@ -1235,10 +1257,25 @@ server <- function(input, output, session) {
 			x[get(primerColName) %in% c('F1','F2','F3','B1c','B2c','B3c','PNAF','PNABc','LFc','LB')]
 			for(i in 1:nrow(x))
 			{
-				updateValsItem(x[i][[primerColName]], x[i][[startColName]], vals, group='Start')
-				updateValsItem(x[i][[primerColName]], x[i][[endColName]]-x[i][[startColName]]-1, vals, group='Len')
-				updateNumericInput(session, paste(x[i][[primerColName]], 'Start', sep=''), value=x[i][[startColName]])
-				updateNumericInput(session, paste(x[i][[primerColName]], 'Len', sep=''), value=x[i][[endColName]]-x[i][[startColName]]-1)
+				startVal <- x[i][[startColName]]
+				lenVal <- x[i][[endColName]]-x[i][[startColName]]+1
+				NTVal <- paste(vals$seq[seq(startVal, startVal + lenVal -1)], collapse='')
+				if(updateValsItem(x[i][[primerColName]], startVal, vals, group='Start'))
+				{
+					if(vals$updatingStartCount == 0){vals$updatingStartCount <- vals$updatingStartCount + 1}
+					# vals$updatingStartCount <- vals$updatingStartCount + 1
+					updateNumericInput(session, paste(x[i][[primerColName]], 'Start', sep=''), value=startVal)
+				}
+				if(updateValsItem(x[i][[primerColName]], lenVal, vals, group='Len'))
+				{
+					if(vals$updatingLenCount == 0){vals$updatingLenCount <- vals$updatingLenCount + 1}
+					updateNumericInput(session, paste(x[i][[primerColName]], 'Len', sep=''), value=lenVal)
+				}
+				if(updateValsItem(x[i][[primerColName]], NTVal, vals, group='NTs'))
+				{
+					if(vals$updatingNTCount == 0){vals$updatingNTCount <- vals$updatingNTCount + 1}
+					updateTextInput(session, paste(x[i][[primerColName]], 'NTs', sep=''), value=NTVal)
+				}
 			}
 			output$revCOutput <- renderText("Clipboard imported.")
 		}
