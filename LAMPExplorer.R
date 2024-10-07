@@ -1236,7 +1236,10 @@ server <- function(input, output, session) {
 			for(i in 1:nrow(x))
 			{
 				updateValsItem(x[i][[primerColName]], x[i][[startColName]], vals, group='Start')
-				updateValsItem(x[i][[primerColName]], x[i][[endColName]], vals, group='Start')
+				updateValsItem(x[i][[primerColName]], x[i][[endColName]]-x[i][[startColName]]-1, vals, group='Len')
+				browser()
+				updateNumericInput(session, paste(x[i][[primerColName]], 'Start', sep=''), value=x[i][[startColName]])
+				updateNumericInput(session, paste(x[i][[primerColName]], 'Len', sep=''), value=x[i][[endColName]]-x[i][[startColName]]-1)
 			}
 			output$revCOutput <- renderText("Clipboard imported.")
 		}
