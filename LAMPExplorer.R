@@ -339,15 +339,15 @@ getPrettyNum <- function(x, sigFigs=3, dropTrailingZeros=F)
 getPrimerStats <- function(x)
 {
 	hp <- fold(x)
-	homd <- homodimer(x)
+	# homd <- homodimer(x)
 	Tm <- calculate_tm(toUpper(x))
 	ret <- list(Tm=sig.digits(Tm, 3),
 					HpTm=sig.digits(hp$temp, 3),
 					HpDeltaG=sig.digits(hp$dg, 3),
-					HpStruct=ifelse(hp$structure_found, hp$structure, ''),
-					HmdTm=sig.digits(homd$temp, 3),
-					HmdDeltaG=sig.digits(homd$dg, 3),
-					HmdStruct=ifelse(homd$structure_found, homd$structure, ''))
+					HpStruct=ifelse(hp$structure_found, hp$structure, ''))
+					# HmdTm=sig.digits(homd$temp, 3),
+					# HmdDeltaG=sig.digits(homd$dg, 3),
+					# HmdStruct=ifelse(homd$structure_found, homd$structure, ''))
 	return(ret)
 }
 
@@ -443,7 +443,7 @@ getHtdStats <- function(primers, seqs, func=daFunc)
 	valNames <- valNames[valNames %!in% c('P1','P2','Seq1','Seq2')]
 	blah <- rbindlist(list(duh2, data.table(Seq1=duh2$Seq2, Seq2=duh2$Seq1, P1=duh2$P2, P2=duh2$P1, duh2[, mget(valNames)])), use.names=T)
 	blah <- unique(blah)
-	blah[, max.i:=which.max(HtdDeltaG), by='P1']
+	blah[, max.i:=which.min(HtdDeltaG)[1], by='P1']
 	blah <- blah[, c(list(P2=P2[max.i]), lapply(mget(valNames), function(x){x[max.i[1]]})), by='P1']
 	return(blah[match(primers, P1), mget(c('P2', valNames))])
 }
@@ -1098,13 +1098,13 @@ server <- function(input, output, session) {
 		ret[Primer == 'PNAF', Start5p:=vals$Start$PNAF]
 		ret[Primer == 'PNAB', Start5p:=getValEnd('PNABc', vals)]
 		ret[, Len:=length(s2c(Seq)), by='Primer']
-		ret[, c('Tm','HpTm','HpDeltaG','HpStruct','HmdTm','HmdDeltaG','HmdStruct'):=getPrimerStats(Seq), by='Primer']
-		ret[, c('P2','HtdTm','HtdDeltaG','HtdStruct'):=getHtdStats(.BY[[1]], Seq, func=getDimerStats), by='Primer']
+		ret[, c('Tm','HpTm','HpDeltaG','HpStruct'):=getPrimerStats(Seq), by='Primer']
+		ret[Primer %!in% c('DBF','DBB'), c('P2','DimerTm','DimerDeltaG','DimerStruct'):=getHtdStats(Primer, Seq, func=getDimerStats)]
 		# ret[Primer %in% c('FIP','BIP'), Tm:='NA']
 		ret[, KeyEndStability:=ifelse(Primer %in% c('F1c','B1c'), Stability5p, Stability3p)]
 		
 		# Data for energy plot
-		ret2 <- melt.data.table(data=ret, id.vars='Primer', measure.vars=c('KeyEndStability','HpDeltaG','HmdDeltaG','HtdDeltaG'))
+		ret2 <- melt.data.table(data=ret, id.vars='Primer', measure.vars=c('KeyEndStability','HpDeltaG','DimerDeltaG'))
 		ret2[, value:=suppressWarnings(as.numeric(value))]
 		ret2[value > 0, value:=0]
 		ret2[variable=='KeyEndStability', value:=-1*value]
@@ -1237,7 +1237,6 @@ server <- function(input, output, session) {
 			{
 				updateValsItem(x[i][[primerColName]], x[i][[startColName]], vals, group='Start')
 				updateValsItem(x[i][[primerColName]], x[i][[endColName]]-x[i][[startColName]]-1, vals, group='Len')
-				browser()
 				updateNumericInput(session, paste(x[i][[primerColName]], 'Start', sep=''), value=x[i][[startColName]])
 				updateNumericInput(session, paste(x[i][[primerColName]], 'Len', sep=''), value=x[i][[endColName]]-x[i][[startColName]]-1)
 			}
