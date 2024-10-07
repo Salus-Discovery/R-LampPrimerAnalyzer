@@ -1262,17 +1262,19 @@ server <- function(input, output, session) {
 				NTVal <- paste(vals$seq[seq(startVal, startVal + lenVal -1)], collapse='')
 				if(updateValsItem(x[i][[primerColName]], startVal, vals, group='Start'))
 				{
+					# Only mark down 1 update for an import event instead one for each change made.
 					if(vals$updatingStartCount == 0){vals$updatingStartCount <- vals$updatingStartCount + 1}
-					# vals$updatingStartCount <- vals$updatingStartCount + 1
 					updateNumericInput(session, paste(x[i][[primerColName]], 'Start', sep=''), value=startVal)
 				}
 				if(updateValsItem(x[i][[primerColName]], lenVal, vals, group='Len'))
 				{
+					# Only mark down 1 update for an import event instead one for each change made.
 					if(vals$updatingLenCount == 0){vals$updatingLenCount <- vals$updatingLenCount + 1}
 					updateNumericInput(session, paste(x[i][[primerColName]], 'Len', sep=''), value=lenVal)
 				}
 				if(updateValsItem(x[i][[primerColName]], NTVal, vals, group='NTs'))
 				{
+					# Only mark down 1 update for an import event instead one for each change made.
 					if(vals$updatingNTCount == 0){vals$updatingNTCount <- vals$updatingNTCount + 1}
 					updateTextInput(session, paste(x[i][[primerColName]], 'NTs', sep=''), value=NTVal)
 				}
