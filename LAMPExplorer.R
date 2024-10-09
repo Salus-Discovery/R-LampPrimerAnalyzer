@@ -1226,7 +1226,7 @@ server <- function(input, output, session) {
 	})
 	
 	observeEvent(input$importButton, {
-		x <- read.clipboard(header=F)
+		x <- read.clipboard(os=Sys.info()['sysname'], header=F)
 		x <- x[x[[1]] %in% c('F1','F1c','F2','F2c','F3','F3c','B1','B1c','B2','B2c','B3','B3c','PNAF','PNAFc','PNAB','PNABc','LF','LFc','LB','LBc')]
 		if(nrow(x) == 0)
 		{
