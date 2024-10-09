@@ -734,7 +734,7 @@ server <- function(input, output, session) {
 		}
 	})
 	
-	observeEvent(list(mySeqHTML(), getInputs(sensePrimerNames, 'NTs', input), getInputs(sensePrimerNames, 'Check', input)), {
+	observeEvent(list(mySeqHTML(), vals$NTs, vals$Check), {
 		# Highlight output
 		# print(paste("Marking ", controlId, ": ", input[[paste0(controlId, "NTs")]]))
 		req(mySeqHTML(), all(sapply(sensePrimerNames, function(x){!is.null(vals$NTs[[x]])})), all(sapply(sensePrimerNames, function(x){!is.null(vals$Check[[x]])})))
@@ -742,16 +742,17 @@ server <- function(input, output, session) {
 		my_marker <- marker$new("#text-to-mark")
 		my_marker$unmark()
 		# browser()
-		if(input$F3Check){ my_marker$mark(input[[paste0("F3", "NTs")]], element=paste0("markF3")) }
-		if(input$F2Check){ my_marker$mark(input[[paste0("F2", "NTs")]], element=paste0("markF2")) }
-		if(input$LFcCheck){ my_marker$mark(input[[paste0("LFc", "NTs")]], element=paste0("markLFc")) }
-		if(input$F1Check){ my_marker$mark(input[[paste0("F1", "NTs")]], element=paste0("markF1")) }
-		if(input$B1cCheck){ my_marker$mark(input[[paste0("B1c", "NTs")]], element=paste0("markB1c")) }
-		if(input$LBCheck){ my_marker$mark(input[[paste0("LB", "NTs")]], element=paste0("markLB")) }
-		if(input$B2cCheck){ my_marker$mark(input[[paste0("B2c", "NTs")]], element=paste0("markB2c")) }
-		if(input$B3cCheck){ my_marker$mark(input[[paste0("B3c", "NTs")]], element=paste0("markB3c")) }
-		if(input$PNAFCheck){ my_marker$mark(input[[paste0("PNAF", "NTs")]], element=paste0("markPNAF")) }
-		if(input$PNABcCheck){ my_marker$mark(input[[paste0("PNABc", "NTs")]], element=paste0("markPNABc")) }
+		lapply(names(vals$Check), function(x){if(vals$Check[[x]]){my_marker$mark(vals$NTs[[x]], element=paste0("mark", x))}})
+		# if(input$F3Check){ my_marker$mark(input[[paste0("F3", "NTs")]], element=paste0("markF3")) }
+		# if(input$F2Check){ my_marker$mark(input[[paste0("F2", "NTs")]], element=paste0("markF2")) }
+		# if(input$LFcCheck){ my_marker$mark(input[[paste0("LFc", "NTs")]], element=paste0("markLFc")) }
+		# if(input$F1Check){ my_marker$mark(input[[paste0("F1", "NTs")]], element=paste0("markF1")) }
+		# if(input$B1cCheck){ my_marker$mark(input[[paste0("B1c", "NTs")]], element=paste0("markB1c")) }
+		# if(input$LBCheck){ my_marker$mark(input[[paste0("LB", "NTs")]], element=paste0("markLB")) }
+		# if(input$B2cCheck){ my_marker$mark(input[[paste0("B2c", "NTs")]], element=paste0("markB2c")) }
+		# if(input$B3cCheck){ my_marker$mark(input[[paste0("B3c", "NTs")]], element=paste0("markB3c")) }
+		# if(input$PNAFCheck){ my_marker$mark(input[[paste0("PNAF", "NTs")]], element=paste0("markPNAF")) }
+		# if(input$PNABcCheck){ my_marker$mark(input[[paste0("PNABc", "NTs")]], element=paste0("markPNABc")) }
 	}, ignoreInit = F)
 	
 	# setUpControlLinks('F3', mySeq, initLocs)
@@ -800,6 +801,11 @@ server <- function(input, output, session) {
 			# print(temp)
 			temp
 		}, vals)
+	})
+	
+	observeEvent(getInputs(sensePrimerNames, 'Check', input), {
+		do.call('req', lapply(getInputs(sensePrimerNames, 'Check', input), function(x){length(x)>0}))
+		lapply(sensePrimerNames, updateValsGroupItem, group='Check', input=input, vals)
 	})
 	
 	observeEvent(getInputs(sensePrimerNames, 'Start', input), {
@@ -1120,7 +1126,10 @@ server <- function(input, output, session) {
 		ret[Primer == 'PNAB', Start5p:=getValEnd('PNABc', vals)]
 		ret[, Len:=length(s2c(Seq)), by='Primer']
 		ret[, c('Tm','HpTm','HpDeltaG','HpStruct'):=getPrimerStats(Seq), by='Primer']
-		ret[Primer %!in% c('DBF','DBB'), c('P2','DimerTm','DimerDeltaG','DimerStruct'):=getHtdStats(Primer, Seq, func=getDimerStats)]
+		checked <- gsub('c','',names(vals$Check)[as.logical(vals$Check)])
+		primerBaseNames <- gsub('c','',ret$Primer)
+		primersToCalc <- primerBaseNames %in% c(checked, 'FIP', 'BIP')
+		ret[primersToCalc, c('P2','DimerTm','DimerDeltaG','DimerStruct'):=getHtdStats(Primer[primersToCalc], Seq[primersToCalc], func=getDimerStats)]
 		# ret[Primer %in% c('FIP','BIP'), Tm:='NA']
 		ret[, KeyEndStability:=ifelse(Primer %in% c('F1c','B1c'), Stability5p, Stability3p)]
 		
