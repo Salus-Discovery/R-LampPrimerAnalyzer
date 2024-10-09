@@ -1106,7 +1106,7 @@ server <- function(input, output, session) {
 	
 	observeEvent(list(vals$NTs, vals$stabilityN, vals$Check), {
 		# toInclude <- c(input$F3Check, input$B3Check, T, T, T, T, T, T, input$LFcCheck, input$LBCheck, input$PNACheck, input$PNAcCheck, T, T)
-		primerNames <- c('F3','B3','F2','F1c','B2','B1c','FIP','BIP','LF','LB','PNAF','PNAB','DBF','DBB')
+		primerNames <- c('F3','B3','F2','B2','F1c','B1c','FIP','BIP','LF','LB','PNAF','PNAB','DBF','DBB')
 		req(vals$seq, allLegal(), all(as.logical(vals$NTs != '')))
 		ret <- data.table(Primer=primerNames,
 								Seq=as.character(sapply(lapply(primerNames, function(x){vals$NTs[[x]]}), paste, collapse='')),
