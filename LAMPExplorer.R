@@ -470,7 +470,7 @@ getDimerStats <- function(x, y)
 #' @export
 read.clipboard <- function(os=c('mac','win'), header=T, sep="\t", use.data.table=T, ...)
 {
-	if(os[1]=='mac')
+	if(os[1] %in% c('Darwin','mac'))
 	{
 		ret <- read.table(pipe('pbpaste'), header=header, sep=sep, ...) # Mac
 	}
