@@ -183,18 +183,18 @@ matchCase <- function(template, target)
 	return(target)
 }
 
-plotHairpin <- function(seq, fullHairpinEnergy, dbSeq, dbStart, dbEnd, starts, ends, colors)
+plotHairpin <- function(seq, fullHairpinEnergy, dbSeq, dbStart, dbEnd, starts, ends, sensePrimerNames)
 {
 	bp <- dbStart:dbEnd
 	seq.new <- s2c(dbSeq)
 	# bpRange <- c(max(1,start.new), min(length(seq), start.new + length(seq.new) - 1))
 	# bp <- bp[bp > 0 & bp < calcLen(seq)]
 	hairpin.new <- rollapply(seq.new, width=25, FUN=function(x){return(fold(x)$dg)}, partial=T, align='center')
-	hairpin.new[is.na(hairpin.new)] <- 0
+	hairpin.new[is.na(hairpin.new) | hairpin.new > 0] <- 0
 	# validBp <- bp[bp > 0 & bp < length(seq)]
 	hairpin <- fullHairpinEnergy # rollapply(seq, width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
 	# hairpin <- rollapply(seq[validBp], width=25, FUN=function(x){return(fold(x)$dg/1000)}, partial=T, align='center')
-	hairpin[is.na(hairpin)] <- 0
+	hairpin[is.na(hairpin) | hairpin > 0] <- 0
 	if(any(seq %in% c('A','G','T','C')))
 	{
 		codons <- which(seq %in% c('A','G','T','C'))
@@ -203,44 +203,57 @@ plotHairpin <- function(seq, fullHairpinEnergy, dbSeq, dbStart, dbEnd, starts, e
 	{
 		codons <- c()
 	}
-	par(mar = c(4, 5, 1, 1), mgp=c(2.7, 1, 0))
-	if(length(codons) > 0)
-	{
-		# plot(validBp, hairpin,
-		plot(1:calcLen(seq), hairpin,
-			  type='l',
-			  # xlim=c(max(0, min(c(codons, starts, start.new))-25), min(length(seq), max(c(codons, ends, start.new+(length(hairpin.new)-1)))+25)),
-			  main='',
-			  ylab='Hairpin Energy [kJ/mol]',
-			  xlab='Position [bp]',
-			  cex.lab=1.5,
-			  xaxt='n',
-			  yaxt='n')
-		lines(x=bp, y=hairpin.new, col='gray', lwd=4)
-		abline(v=codons, h=0.6, col=setColor('red', 0.2))
-	}
-	else
-	{
-		plot(seq_along(), hairpin,
-			  type='l',
-			  # xlim=c(max(0, min(c(starts, start.new))-25), min(length(seq), max(c(ends, start.new+(length(hairpin.new)-1)))+25)),
-			  main='',
-			  ylab='Hairpin Energy [kJ/mol]',
-			  xlab='Position [bp]',
-			  cex.lab=1.5,
-			  xaxt='n',
-			  yaxt='n')
-		lines(x=bp, y=hairpin.new, col='gray', lwd=4)
-	}
-	axis(1,cex.axis=1.5, las=1)
-	axis(2,cex.axis=1.5, las=1)
-	for(i in seq_along(starts))
-	{
-		shade(starts[i], ends[i], colors[i], alpha=0.2)
-	}
+	ret <- ggplot(NULL) +
+		geom_rect(data=data.table(Primer=factor(sensePrimerNames, levels=sensePrimerNames), xmin=starts, xmax=ends), aes(xmin=xmin, xmax=xmax, ymin=-Inf, ymax=Inf, fill=Primer), color='black')	+
+		scale_fill_manual(values = setColor(getColor(sensePrimerNames), 0.3)) +
+		geom_path(data=data.table(x=1:calcLen(seq), y=hairpin), aes(x=x, y=y)) +
+		geom_path(data=data.table(x=bp, y=hairpin.new), aes(x=x, y=y), linewidth=3) +
+		geom_hline(yintercept=-4, col=setColor('red', 0.2)) +
+		geom_vline(xintercept=codons, col=setColor('red', 0.2)) +
+		scale_x_continuous(limits=c(1,calcLen(seq))) +
+		scale_y_continuous(limits=c(-15,0.1)) + 
+		xlab('Nucleotide Position') +
+		ylab('Energy [kJ/mol]') +
+		theme_classic() + 
+		theme(axis.text=element_text(size=rel(2.0)),
+				axis.title=element_text(size=rel(2.0)),
+				legend.text=element_text(size=rel(2.0)),
+				legend.title=element_text(size=rel(2.0)),
+				legend.position='none',
+				panel.border = element_rect(colour = "black", fill=NA, size=1))
+	return(ret)
 }
 
-plotGC <- function(seq, fullGC, dbSeq, dbStart, dbEnd, starts, ends, colors)
+plotEnergies <- function(results)
+{
+	ret <- ggplot(data=results[!is.na(value) & variable != 'KeyEndStability'], aes( x=Primer, y=value, fill=variable)) +
+		geom_col() +
+		geom_col(data=results[!is.na(value) & variable == 'KeyEndStability']) +
+		geom_hline(yintercept=c(4,-4)) +
+		labs(x='Sequence', y='Energy [kJ/mol]') +
+		scale_y_continuous(limits=c(-25,10),oob = rescale_none) +
+		theme(axis.text=element_text(size=rel(2.0)),
+				axis.title=element_text(size=rel(2.0)),
+				legend.text=element_text(size=rel(2.0)),
+				legend.title=element_text(size=rel(2.0)))
+	return(ret)
+}
+
+plotTm <- function(results)
+{
+	ret <- ggplot(data=results, aes(x=Primer, y=Tm, fill=Primer)) + 
+		geom_col() +
+		scale_fill_manual(values = getColor(as.character(levels(results$Primer)))) + 
+		geom_hline(yintercept=c(50,60,70)) +
+		scale_y_continuous(limits=c(40,80),oob = rescale_none) +
+		theme(axis.text=element_text(size=rel(2.0)),
+				axis.title=element_text(size=rel(2.0)),
+				legend.text=element_text(size=rel(2.0)),
+				legend.title=element_text(size=rel(2.0)))
+	return(ret)
+}
+
+plotGC <- function(seq, fullGC, dbSeq, dbStart, dbEnd, starts, ends, sensePrimerNames)
 {
 	gc.frac <- fullGC # rollapply(gc, width=20, FUN=mean, partial=T, align='center')
 	start.new <- dbStart
@@ -258,41 +271,26 @@ plotGC <- function(seq, fullGC, dbSeq, dbStart, dbEnd, starts, ends, colors)
 		codons <- c()
 	}
 	par(mar = c(4, 5, 1, 1), mgp=c(2.7, 1, 0))
-	if(length(codons) > 0)
-	{
-		plot(seq_along(gc.frac), gc.frac,
-			  type='l',
-			  xlim=c(max(0, min(c(codons, starts, start.new))-25), min(length(seq), max(c(codons, ends, start.new+(length(gc.frac.new)-1)))+25)),
-			  main='',
-			  ylim=c(0.35,1),
-			  ylab='GC Fraction',
-			  xlab='Position [bp]',
-			  cex.lab=1.5,
-			  xaxt='n',
-			  yaxt='n')
-		lines(x=start.new:(start.new+(length(gc.frac.new)-1)), y=gc.frac.new, col='gray', lwd=4)
-		abline(v=codons, h=0.6, col=setColor('red', 0.2))
-	}
-	else
-	{
-		plot(seq_along(gc.frac), gc.frac,
-			  type='l',
-			  xlim=c(max(0, min(c(starts, start.new))-25), min(length(seq), max(c(ends, start.new+(length(gc.new)-1)))+25)),
-			  main='',
-			  ylim=c(0.35,1),
-			  ylab='GC Fraction',
-			  xlab='Position [bp]',
-			  cex.lab=1.5,
-			  xaxt='n',
-			  yaxt='n')
-		lines(x=start.new:(start.new+(length(gc.frac.new)-1)), y=gc.frac.new, col='gray', lwd=4)
-	}
-	axis(1,cex.axis=1.5, las=1)
-	axis(2,cex.axis=1.5, las=1)
-	for(i in seq_along(starts))
-	{
-		shade(starts[i], ends[i], colors[i], alpha=0.2)
-	}
+	
+	ret <- ggplot(NULL) +
+		geom_rect(data=data.table(Primer=factor(sensePrimerNames, levels=sensePrimerNames), xmin=starts, xmax=ends), aes(xmin=xmin, xmax=xmax, ymin=-Inf, ymax=Inf, fill=Primer), color='black')	+
+		scale_fill_manual(values = setColor(getColor(sensePrimerNames), 0.3)) +
+		geom_path(data=data.table(x=seq_along(gc.frac), y=gc.frac), aes(x=x, y=y)) +
+		geom_path(data=data.table(x=start.new:(start.new+(length(gc.frac.new)-1)), y=gc.frac.new), aes(x=x, y=y), linewidth=3) +
+		geom_hline(yintercept=0.6, col=setColor('red', 0.2)) +
+		geom_vline(xintercept=codons, col=setColor('red', 0.2)) +
+		scale_x_continuous(limits=c(1,calcLen(seq))) +
+		scale_y_continuous(limits=c(0,1)) + 
+		xlab('GC Fraction') +
+		ylab('Energy [kJ/mol]') +
+		theme_classic() + 
+		theme(axis.text=element_text(size=rel(2.0)),
+				axis.title=element_text(size=rel(2.0)),
+				legend.text=element_text(size=rel(2.0)),
+				legend.title=element_text(size=rel(2.0)),
+				legend.position='none',
+				panel.border = element_rect(colour = "black", fill=NA, size=1))
+	return(ret)
 }
 
 shade <- function(start, end, color, alpha=1)
@@ -522,7 +520,11 @@ ui <- fluidPage(
 	# Sidebar with a slider input for number of bins 
 	sidebarLayout(
 		sidebarPanel(width=5,
-						 h4("Target Sequence:"),
+						 fluidPage(fluidRow(column(5, h4("Target Sequence:")),
+						 						 column(7, fileInput("importSettings", '', placeholder='Settings.RData',
+						 						 						  multiple = FALSE,
+						 						 						  accept = c(".RData"))))
+						 ),
 						 tags$textarea(id="Seq", rows=10, cols=60, 
 						 				  'atcgaccacttcggcaaccgccgcctgcgtacggtcggcgagctgatccaaaaccagatccgggtcggcatgtcgcggatggagcgggtggtccgggagcggatgaccacccaggacgtggaggcgatcacaccgcagacgttgatcaacatccggccggtggtcgccgcgatcaaggagttcttcggcaccagccagctgagccaattcatgGACcagaacaacccgctgtcggggttgaccCACaagcgccgactgTCGgcgctggggcccggcggtctgtcacgtgagcgtgccgggctggaggtccgcgacgtgcacccgtcgcactacggccggatgtgcccgatcgaaacccctgaggggcccaacatcggtctgatcggctcgctgtcggtgtacgcgcgggtcaacccgttcgggttcatcgaaacgccgtaccgcaaggtggtcgacggcgtggttagcgacgagatcgtgtacctgaccgccgacgagga'
 						 ),
@@ -792,13 +794,22 @@ server <- function(input, output, session) {
 				}
 				if(input$Seq == '')
 				{
-					browser()
-					updateTextAreaInput(paste(temp, collapse=''))
+					updateTextAreaInput(session, inputId='Seq', value=paste(temp, collapse=''))
 				}
 			}
 			# print(temp)
 			temp
 		}, vals)
+	})
+	
+	observeEvent(getInputs(sensePrimerNames, 'Start', input), {
+		do.call('req', getInputs(sensePrimerNames, 'Start', input))
+		lapply(sensePrimerNames, updateValsGroupItem, group='Start', input=input, vals)
+	})
+	
+	observeEvent(getInputs(sensePrimerNames, 'Len', input), {
+		do.call('req', getInputs(sensePrimerNames, 'Len', input))
+		lapply(sensePrimerNames, updateValsGroupItem, group='Len', input=input, vals)
 	})
 	
 	# Watch all the inputs and create a ground truth stored version of everything
@@ -877,16 +888,6 @@ server <- function(input, output, session) {
 		}, vals)
 		updateValsItem('DBStart', vals$Start$F2-vals$polyT-vals$Len$F1, vals)
 		updateValsItem('DBEnd', (vals$Start$B2c + vals$Len$B2c - 1)+vals$polyT+vals$Len$B1c, vals)
-	})
-	
-	observeEvent(getInputs(sensePrimerNames, 'Start', input), {
-		do.call('req', getInputs(sensePrimerNames, 'Start', input))
-		lapply(sensePrimerNames, updateValsGroupItem, group='Start', input=input, vals)
-	})
-	
-	observeEvent(getInputs(sensePrimerNames, 'Len', input), {
-		do.call('req', getInputs(sensePrimerNames, 'Len', input))
-		lapply(sensePrimerNames, updateValsGroupItem, group='Len', input=input, vals)
 	})
 	
 	observeEvent(getInputs(sensePrimerNames, 'Check', input), {
@@ -1010,7 +1011,6 @@ server <- function(input, output, session) {
 	# Feed NT values if Len input values change
 	observeEvent(vals$Len, {
 		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$Len[[x]])})))
-		print(silenceLenUpdate)
 		if(silenceLenUpdate == 0)
 		{
 			silenceNTUpdate <<- silenceNTUpdate + 1
@@ -1158,56 +1158,56 @@ server <- function(input, output, session) {
 			  T)]]
 	})
 	
+	GCPlot <- reactive({
+		req(vals$seq, vals$DBAll, vals$results2, calcLen(vals$DBAll) == (vals$DBEnd-vals$DBStart+1))
+		plotGC(seq = vals$seq,
+				 fullGC = isolate(fullGC()),
+				 dbSeq = isolate(vals$DBAll),
+				 dbStart = isolate(vals$DBStart),
+				 dbEnd = isolate(vals$DBEnd),
+				 starts = starts(), 
+				 ends   = stops(),
+				 sensePrimerNames = sensePrimerNames)
+	})
+	
+	HairpinPlot <- reactive({
+		req(vals$seq, vals$DBAll, calcLen(vals$DBAll) == (vals$DBEnd-vals$DBStart+1))
+		plotHairpin(vals$seq,
+						fullHairpinEnergy=isolate(fullHairpinEnergy()),
+						dbSeq = isolate(vals$DBAll),
+						dbStart = isolate(vals$DBStart),
+						dbEnd = isolate(vals$DBEnd),
+						starts = starts(), 
+						ends   = stops(),
+						sensePrimerNames = sensePrimerNames)
+	})
+	
+	EnergiesPlot <- reactive({
+		req(vals$results2) # 
+		plotEnergies(vals$results2)
+	})
+	
+	TmPlot <- reactive({
+		req(vals$results3)
+		plotTm(vals$results3)
+	})
+	
 	observeEvent(list(vals$seq, vals$NTs), {
-		output$HairpinPlot <- renderPlot({
-			req(vals$seq, vals$DBAll, calcLen(vals$DBAll) == (vals$DBEnd-vals$DBStart+1))
-			plotHairpin(vals$seq,
-							fullHairpinEnergy=isolate(fullHairpinEnergy()),
-							dbSeq = isolate(vals$DBAll),
-							dbStart = isolate(vals$DBStart),
-							dbEnd = isolate(vals$DBEnd),
-							starts = isolate(starts()), 
-							ends   = isolate(stops()),
-							colors = isolate(primerColors()))
-		})
 		
 		output$GCPlot <- renderPlot({
-			req(vals$seq, vals$DBAll, vals$results2, calcLen(vals$DBAll) == (vals$DBEnd-vals$DBStart+1))
-			plotGC(seq = vals$seq,
-					 fullGC = isolate(fullGC()),
-					 dbSeq = isolate(vals$DBAll),
-					 dbStart = isolate(vals$DBStart),
-					 dbEnd = isolate(vals$DBEnd),
-					 starts = isolate(starts()), 
-					 ends   = isolate(stops()),
-					 colors = isolate(primerColors()))
+			GCPlot()
+		})
+		
+		output$HairpinPlot <- renderPlot({
+			HairpinPlot()
 		})
 		
 		output$EnergyPlot <- renderPlot({
-			req(vals$results2) # 
-			ggplot(data=vals$results2[!is.na(value) & variable != 'KeyEndStability'], aes( x=Primer, y=value, fill=variable)) +
-				geom_col() +
-				geom_col(data=vals$results2[!is.na(value) & variable == 'KeyEndStability']) +
-				geom_hline(yintercept=c(4,-4)) +
-				labs(x='Sequence', y='Energy [kJ/mol]') +
-				scale_y_continuous(limits=c(-25,10),oob = rescale_none) +
-				theme(axis.text=element_text(size=rel(2.0)),
-						axis.title=element_text(size=rel(2.0)),
-						legend.text=element_text(size=rel(2.0)),
-						legend.title=element_text(size=rel(2.0)))
+			EnergiesPlot()
 		})
 		
 		output$TmPlot <- renderPlot({
-			req(vals$results3)
-			ggplot(data=vals$results3, aes(x=Primer, y=Tm, fill=Primer)) + 
-				geom_col() +
-				scale_fill_manual(values = getColor(as.character(levels(vals$results3$Primer)))) + 
-				geom_hline(yintercept=c(50,60,70)) +
-				scale_y_continuous(limits=c(40,80),oob = rescale_none) +
-				theme(axis.text=element_text(size=rel(2.0)),
-						axis.title=element_text(size=rel(2.0)),
-						legend.text=element_text(size=rel(2.0)),
-						legend.title=element_text(size=rel(2.0)))
+			TmPlot()
 		})
 	})
 	
@@ -1282,17 +1282,59 @@ server <- function(input, output, session) {
 		}
 	})
 	
-	output$download <- downloadHandler(
-		filename = function(){paste(input$downloadName, '.csv')}, 
-		content = function(fname){
-			fwrite(vals$results, fname)
+	observeEvent(input$importSettings, {
+		# browser()
+		load(input$importSettings$datapath)
+		for(item in names(settings))
+		{
+			print(paste("Importing:", item))
+			vals[[item]] <- settings[[item]]
 		}
-	)
+		updateTextAreaInput(session, 'Seq', value=paste(vals$seq, collapse=''))
+		for(name in sensePrimerNames)
+		{
+			updateNumericInput(session, inputId=paste(name, 'Start', sep=''), value=vals$Start[[name]])
+			updateNumericInput(session, inputId=paste(name, 'Len', sep=''), value=vals$Len[[name]])
+		}
+	})
 	
-	# observe({
-	# 	updateCheckboxInput(session, inputId='F3Check', value=F)
-	# 	updateCheckboxInput(session, inputId='F3Check', value=T)
-	# })
+	output$download <- downloadHandler(
+		# filename = function(){paste(input$downloadName, '.csv')},
+		# content = function(fname){
+		# 	fwrite(vals$results, fname)
+		# }
+
+		filename = function(){paste(input$downloadName, '.zip')},
+		content = function(fname){
+
+			# Set temporary working directory
+			owd <- setwd( tempdir())
+			print(getwd())
+			on.exit( setwd( owd))
+			
+			temp <- list(GCPlot=GCPlot(), HairpinPlot=HairpinPlot(), EnergiesPlot=EnergiesPlot(), TmPlot=TmPlot())
+			temp <- temp[sapply(temp, isTruthy)]
+			lapply(names(temp), function(x){
+				ggsave(paste(x, '.png', sep=''), plot = temp[[x]], device = "png", width = 18, height = 6, dpi = 150, units = "in")
+			})
+
+			# print(vals$results)
+			fwrite(vals$results, 'SummaryTable.csv')
+			
+			# Save the inputs so they can be reloaded later if desired.
+			settings <- list()
+			for(item in names(vals))
+			{
+				settings[[item]] <- vals[[item]]
+			}
+			save(settings, file='Settings.RData')
+			
+			# Zip them up
+			# print(fname)
+			return(zip( zipfile=fname, files=c('Settings.RData', 'SummaryTable.csv', paste(names(temp), '.png', sep=''))))
+		},
+		contentType = "application/zip"
+	)
 }
 
 # Run the application 
