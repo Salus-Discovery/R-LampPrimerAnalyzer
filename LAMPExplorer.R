@@ -1129,7 +1129,8 @@ server <- function(input, output, session) {
 		checked <- gsub('c','',names(vals$Check)[as.logical(vals$Check)])
 		primerBaseNames <- gsub('c','',ret$Primer)
 		primersToCalc <- primerBaseNames %in% c(checked, 'FIP', 'BIP')
-		ret[primersToCalc, c('P2','DimerTm','DimerDeltaG','DimerStruct'):=getHtdStats(Primer[primersToCalc], Seq[primersToCalc], func=getDimerStats)]
+		# browser()
+		ret[primersToCalc, c('P2','DimerTm','DimerDeltaG','DimerStruct'):=getHtdStats(Primer, Seq, func=getDimerStats)]
 		# ret[Primer %in% c('FIP','BIP'), Tm:='NA']
 		ret[, KeyEndStability:=ifelse(Primer %in% c('F1c','B1c'), Stability5p, Stability3p)]
 		
@@ -1138,7 +1139,7 @@ server <- function(input, output, session) {
 		ret2[, value:=suppressWarnings(as.numeric(value))]
 		ret2[value > 0, value:=0]
 		ret2[variable=='KeyEndStability', value:=-1*value]
-		ret2[, Primer:=factor(ret2$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','FIP','BIP','PNAF','PNAB','DBF','DBB'))]
+		ret2[, Primer:=factor(ret2$Primer, levels=primerNames)]
 		
 		# Data for Tm plot
 		ret3 <- ret[, c('Primer','Tm')]
@@ -1147,24 +1148,10 @@ server <- function(input, output, session) {
 		setkey(ret3, Primer)
 		setkey(primerColors, Primer)
 		ret3 <- primerColors[ret3]
-		ret3[, Primer:=factor(ret3$Primer, levels=c('F3','B3','F2','B2','LF','LB','F1c','B1c','PNAF','PNAB','FIP','BIP','DBF','DBB'))]
+		ret3[, Primer:=factor(ret3$Primer, levels=primerNames)]
 		vals$results2 <- ret2
 		vals$results3 <- ret3
-		vals$results <- ret[Primer %in% primerNames[
-			c(vals$Check$F3,
-			  vals$Check$B3c,
-			  vals$Check$F2,
-			  vals$Check$F1,
-			  vals$Check$B2c,
-			  vals$Check$B1c,
-			  vals$Check$LFc,
-			  vals$Check$LB,
-			  vals$Check$PNAF,
-			  vals$Check$PNABc,
-			  vals$Check$F1 && vals$Check$F2,
-			  vals$Check$B1c && vals$Check$B2c,
-			  T,
-			  T)]]
+		vals$results <- ret
 	})
 	
 	GCPlot <- reactive({
