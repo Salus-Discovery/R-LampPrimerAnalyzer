@@ -345,9 +345,9 @@ getPrimerStats <- function(x)
 					HpTm=sig.digits(hp$temp, 3),
 					HpDeltaG=sig.digits(hp$dg, 3),
 					HpStruct=ifelse(hp$structure_found, hp$structure, ''))
-					# HmdTm=sig.digits(homd$temp, 3),
-					# HmdDeltaG=sig.digits(homd$dg, 3),
-					# HmdStruct=ifelse(homd$structure_found, homd$structure, ''))
+	# HmdTm=sig.digits(homd$temp, 3),
+	# HmdDeltaG=sig.digits(homd$dg, 3),
+	# HmdStruct=ifelse(homd$structure_found, homd$structure, ''))
 	return(ret)
 }
 
@@ -522,46 +522,46 @@ ui <- fluidPage(
 	# Sidebar with a slider input for number of bins 
 	sidebarLayout(
 		sidebarPanel(width=5,
-			h4("Target Sequence:"),
-			tags$textarea(id="Seq", rows=10, cols=60, 
-							  'atcgaccacttcggcaaccgccgcctgcgtacggtcggcgagctgatccaaaaccagatccgggtcggcatgtcgcggatggagcgggtggtccgggagcggatgaccacccaggacgtggaggcgatcacaccgcagacgttgatcaacatccggccggtggtcgccgcgatcaaggagttcttcggcaccagccagctgagccaattcatgGACcagaacaacccgctgtcggggttgaccCACaagcgccgactgTCGgcgctggggcccggcggtctgtcacgtgagcgtgccgggctggaggtccgcgacgtgcacccgtcgcactacggccggatgtgcccgatcgaaacccctgaggggcccaacatcggtctgatcggctcgctgtcggtgtacgcgcgggtcaacccgttcgggttcatcgaaacgccgtaccgcaaggtggtcgacggcgtggttagcgacgagatcgtgtacctgaccgccgacgagga'
-			),
-			hr(),
-			fluidPage(fluidRow(column(6, numericInput("polyT", "FIP/BIP PolyT-Spacer Length:", 3)),
-									 column(6, numericInput("stabilityN", "End Stability Bp's:", 5))),
-						 textInput('revCTool', 'Rev. Compl. Tool', placeholder='Auto-copy RevC to Clipboard'),
-						 textOutput('revCOutput'),
-						 actionButton("importButton", "Import Clipboard")),
-			hr(),
-			# textOutput("Warnings"),
-			# actionButton("Update", "Update Plots"),
-			uiOutput("F3"),
-			uiOutput("F2"),
-			uiOutput("F1"),
-			uiOutput("B1c"),
-			uiOutput("B2c"),
-			uiOutput("B3c"),
-			uiOutput("LFc"),
-			uiOutput("LB"),
-			uiOutput("PNAF"),
-			uiOutput("PNABc")
+						 h4("Target Sequence:"),
+						 tags$textarea(id="Seq", rows=10, cols=60, 
+						 				  'atcgaccacttcggcaaccgccgcctgcgtacggtcggcgagctgatccaaaaccagatccgggtcggcatgtcgcggatggagcgggtggtccgggagcggatgaccacccaggacgtggaggcgatcacaccgcagacgttgatcaacatccggccggtggtcgccgcgatcaaggagttcttcggcaccagccagctgagccaattcatgGACcagaacaacccgctgtcggggttgaccCACaagcgccgactgTCGgcgctggggcccggcggtctgtcacgtgagcgtgccgggctggaggtccgcgacgtgcacccgtcgcactacggccggatgtgcccgatcgaaacccctgaggggcccaacatcggtctgatcggctcgctgtcggtgtacgcgcgggtcaacccgttcgggttcatcgaaacgccgtaccgcaaggtggtcgacggcgtggttagcgacgagatcgtgtacctgaccgccgacgagga'
+						 ),
+						 hr(),
+						 fluidPage(fluidRow(column(6, numericInput("polyT", "FIP/BIP PolyT-Spacer Length:", 3)),
+						 						 column(6, numericInput("stabilityN", "End Stability Bp's:", 5))),
+						 			 textInput('revCTool', 'Rev. Compl. Tool', placeholder='Auto-copy RevC to Clipboard'),
+						 			 textOutput('revCOutput'),
+						 			 actionButton("importButton", "Import Clipboard")),
+						 hr(),
+						 # textOutput("Warnings"),
+						 # actionButton("Update", "Update Plots"),
+						 uiOutput("F3"),
+						 uiOutput("F2"),
+						 uiOutput("F1"),
+						 uiOutput("B1c"),
+						 uiOutput("B2c"),
+						 uiOutput("B3c"),
+						 uiOutput("LFc"),
+						 uiOutput("LB"),
+						 uiOutput("PNAF"),
+						 uiOutput("PNABc")
 		),
 		
 		# Show a plot of the generated distribution
 		mainPanel(width=7,
-			uiOutput("coloredSeq"),
-			wellPanel(style="background-color: white;", 
-						 plotOutput("GCPlot"),
-						 plotOutput("HairpinPlot"),
-						 plotOutput("EnergyPlot"),
-						 plotOutput("TmPlot"),
-			),
-			hr(),
-			fluidPage(fluidRow(column(2, downloadButton('download',"Download Table")),
-									 column(3, textInput('downloadName',NULL, value='Primer Set 1')),
-									 column(1, h4(".csv")),
-									 column(6, ))),
-			tableOutput("ResultsTable"),
+					 uiOutput("coloredSeq"),
+					 wellPanel(style="background-color: white;", 
+					 			 plotOutput("GCPlot"),
+					 			 plotOutput("HairpinPlot"),
+					 			 plotOutput("EnergyPlot"),
+					 			 plotOutput("TmPlot"),
+					 ),
+					 hr(),
+					 fluidPage(fluidRow(column(2, downloadButton('download',"Download Table")),
+					 						 column(3, textInput('downloadName',NULL, value='Primer Set 1')),
+					 						 column(1, h4(".csv")),
+					 						 column(6, ))),
+					 tableOutput("ResultsTable"),
 		)
 	)
 )
@@ -670,19 +670,14 @@ getEnd <- function(input, controlId)
 	return(input[[paste0(controlId, 'Start')]] + (input[[paste0(controlId, 'Len')]] - 1))
 }
 
+silenceNTUpdate <- 0
+silenceStartUpdate <- 0
+silenceLenUpdate <- 0
+
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
-
-	vals <- reactiveValues(
-								  # NTs=list(),
-								  # Start=list(),
-								  # Len=list(),
-								  # results=NULL,
-								  # DBAll=NULL,
-								  updatingNTCount=0,
-								  updatingStartCount=0,
-								  updatingLenCount=0,
-								  render=1)
+	
+	vals <- reactiveValues(render=1)
 	
 	mySeqHTML <- reactive({
 		req(vals$seq)
@@ -716,8 +711,8 @@ server <- function(input, output, session) {
 	
 	observeEvent( list(vals$seq, vals$render > 0),{
 		req(vals$seq)
-		print("Rendering primer controls.")
 		if(calcLen(vals$seq)==0){vals$render <- vals$render + 1}
+		print("Rendering primer controls.")
 		output$F3 <- renderUI(isolate(renderPrimerControl(vals$seq, 'F3', initLocs=initLocs(), Loc=2)))
 		output$F2 <- renderUI(isolate(renderPrimerControl(vals$seq, 'F2', initLocs=initLocs(), Loc=3)))
 		output$LFc <- renderUI(isolate(renderPrimerControl(vals$seq, 'LFc', initLocs=initLocs(), Loc=0)))
@@ -731,6 +726,9 @@ server <- function(input, output, session) {
 		# print(vals$render)
 		if(all(sapply(sensePrimerNames, function(x){calcLen(input[[paste(x, 'NTs', sep='')]]) > 0}))){
 			vals$render <- 0
+			silenceLenUpdate <<- 0
+			silenceStartUpdate <<- 0
+			silenceNTUpdate <<- 0
 		}
 	})
 	
@@ -792,7 +790,11 @@ server <- function(input, output, session) {
 				{
 					vals$seq <- temp
 				}
-				updateTextAreaInput(paste(temp, collapse=''))
+				if(input$Seq == '')
+				{
+					browser()
+					updateTextAreaInput(paste(temp, collapse=''))
+				}
 			}
 			# print(temp)
 			temp
@@ -974,8 +976,10 @@ server <- function(input, output, session) {
 	# Feed NT values if Start input values change
 	observeEvent(vals$Start, {
 		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$Start[[x]])})))
-		if(!is.null(vals$updatingStartCount) && !vals$updatingStartCount)
+		if(silenceStartUpdate == 0)
 		{
+			silenceNTUpdate <<- silenceNTUpdate + 1
+			ntUpdated <- FALSE
 			for(controlId in sensePrimerNames)
 			{
 				bpStart <- vals$Start[[controlId]]
@@ -986,26 +990,31 @@ server <- function(input, output, session) {
 				}
 				bp <- seq(from=bpStart, to=bpEnd)
 				temp <- paste(vals$seq[bp], collapse='')
-				if(getInput(controlId, 'NTs', input) != temp)
+				if(vals$NTs[[controlId]] != temp) # && silenceNTUpdate == 0)
 				{
-					print('Updating NTs')
-					if(updateValsItem(controlId, temp, vals, group='NTs'))
-					{
-						vals$updatingNTCount <- vals$updatingNTCount + 1
-						updateTextInput(session, paste0(controlId, 'NTs'), value=temp)
-					}
+					# print(vals$render)
+					ntUpdated <- TRUE
+					print(paste("Updating NTs from Start:", silenceNTUpdate))
+					updateTextInput(session, paste0(controlId, 'NTs'), value=temp)
 				}
 			}
-		} else if(vals$updatingStartCount > 0) {
-			vals$updatingStartCount <- vals$updatingStartCount - 1
+			if(!ntUpdated){silenceNTUpdate <<- silenceNTUpdate - 1}
+		}
+		else if(silenceStartUpdate > 0)
+		{
+			silenceStartUpdate <<- silenceStartUpdate - 1
+			print(paste("Silencing Start Update:", silenceStartUpdate))
 		}
 	})
 	
 	# Feed NT values if Len input values change
 	observeEvent(vals$Len, {
 		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$Len[[x]])})))
-		if(!is.null(vals$updatingLenCount) && !vals$updatingLenCount)
+		print(silenceLenUpdate)
+		if(silenceLenUpdate == 0)
 		{
+			silenceNTUpdate <<- silenceNTUpdate + 1
+			ntUpdated <- FALSE
 			for(controlId in sensePrimerNames)
 			{
 				bpStart <- vals$Start[[controlId]]
@@ -1016,72 +1025,62 @@ server <- function(input, output, session) {
 				}
 				bp <- seq(from=bpStart, to=bpEnd)
 				temp <- paste(vals$seq[bp], collapse='')
-				# if(any(getInput(controlId, 'NTs', input) != temp))
-				# {
-				# 	print('Updating NTs')
-				# 	if(vals$NTs[[controlId]] != temp)
-				# 	{
-				# 		updateValsItem(controlId, temp, vals, group='NTs')
-				# 	}
-				# 	vals$updatingNTCount <- vals$updatingNTCount + 1
-				# 	updateTextInput(session, paste0(controlId, 'NTs'), value=temp)
-				# }
-				if(getInput(controlId, 'NTs', input) != temp)
+				if(vals$NTs[[controlId]] != temp) # && silenceNTUpdate == 0)
 				{
-					print('Updating NTs')
-					if(updateValsItem(controlId, temp, vals, group='NTs'))
-					{
-						vals$updatingNTCount <- vals$updatingNTCount + 1
-						updateTextInput(session, paste0(controlId, 'NTs'), value=temp)
-					}
+					ntUpdated <- TRUE
+					print(paste("Updating NTs from Len:", silenceNTUpdate))
+					updateTextInput(session, paste0(controlId, 'NTs'), value=temp)
 				}
 			}
-		} else if(vals$updatingLenCount > 0) {
-			vals$updatingLenCount <- vals$updatingLenCount - 1
+			if(!ntUpdated){silenceNTUpdate <<- silenceNTUpdate - 1}
+		}
+		else if(silenceLenUpdate > 0)
+		{
+			silenceLenUpdate <<- silenceLenUpdate - 1
+			print(paste("Silencing Len Update:", silenceLenUpdate))
 		}
 	})
 	
 	# Feed Start and Len input values if NT values change
 	observeEvent(vals$NTs, {
 		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$NTs[[x]])})))
-		if(vals$updatingNTCount)
+		if(silenceNTUpdate > 0)
 		{
-			print(vals$updatingNTCount)
+			silenceNTUpdate <<- silenceNTUpdate - 1
+			print(paste("Silencing NT Update:", silenceNTUpdate))
 		}
-		if(!is.null(vals$updatingNTCount) && !vals$updatingNTCount)
+		else
 		{
+			silenceStartUpdate <<- silenceStartUpdate + 1
+			silenceLenUpdate <<- silenceLenUpdate + 1
+			startUpdated <- FALSE
+			lenUpdated <- FALSE
 			for(controlId in sensePrimerNames)
 			{
 				temp <- vals$NTs[[controlId]]
 				start <- getStartFromSeq(temp, paste(vals$seq, collapse=''))
 				len <- calcLen(temp)
-				if(any(getInput(controlId, 'Start', input) != start))
+				if(vals$Start[[controlId]] != start) # && silenceStartUpdate == 0)
 				{
-					print('Updating Start')
-					if(vals$Start[[controlId]] != start)
-					{
-						if(updateValsItem(controlId, start, vals, group='Start'))
-						{
-							vals$updatingStartCount <- vals$updatingStartCount + 1
-							updateNumericInput(session, paste0(controlId, 'Start'), value=start)
-						}
-					}
+					startUpdated <- TRUE
+					print(paste("Update Start UI from NTs change:", silenceStartUpdate))
+					updateNumericInput(session, paste0(controlId, 'Start'), value=start)
 				}
-				if(any(getInput(controlId, 'Len', input) != len))
+				if(vals$Len[[controlId]] != len) # && silenceLenUpdate == 0)
 				{
-					print('Updating Len')
-					if(vals$Len[[controlId]] != len)
-					{
-						if(updateValsItem(controlId, len, vals, group='Len'))
-						{
-							vals$updatingLenCount <- vals$updatingLenCount + 1
-							updateNumericInput(session, paste0(controlId, 'Len'), value=len)
-						}
-					}
+					lenUpdated <- TRUE
+					print(paste("Update Len UI from NTs change", silenceLenUpdate))
+					updateNumericInput(session, paste0(controlId, 'Len'), value=len)
 				}
 			}
-		} else if(vals$updatingNTCount > 0) {
-			vals$updatingNTCount <- vals$updatingNTCount - 1
+			if(!startUpdated){
+				# browser()
+				silenceStartUpdate <<- silenceStartUpdate - 1
+			}
+			if(!lenUpdated){
+				# browser()
+				silenceLenUpdate <<- silenceLenUpdate - 1
+			}
 		}
 	})
 	
@@ -1260,22 +1259,22 @@ server <- function(input, output, session) {
 				startVal <- x[i][[startColName]]
 				lenVal <- x[i][[endColName]]-x[i][[startColName]]+1
 				NTVal <- paste(vals$seq[seq(startVal, startVal + lenVal -1)], collapse='')
-				if(updateValsItem(x[i][[primerColName]], startVal, vals, group='Start'))
+				if(vals$Start[[x[i][[primerColName]]]] != startVal) #updateValsItem(x[i][[primerColName]], startVal, vals, group='Start'))
 				{
 					# Only mark down 1 update for an import event instead one for each change made.
-					if(vals$updatingStartCount == 0){vals$updatingStartCount <- vals$updatingStartCount + 1}
+					if(silenceStartUpdate == 0){silenceStartUpdate <<- silenceStartUpdate + 1}
 					updateNumericInput(session, paste(x[i][[primerColName]], 'Start', sep=''), value=startVal)
 				}
-				if(updateValsItem(x[i][[primerColName]], lenVal, vals, group='Len'))
+				if(vals$Len[[x[i][[primerColName]]]] != lenVal) # updateValsItem(x[i][[primerColName]], lenVal, vals, group='Len'))
 				{
 					# Only mark down 1 update for an import event instead one for each change made.
-					if(vals$updatingLenCount == 0){vals$updatingLenCount <- vals$updatingLenCount + 1}
+					if(silenceLenUpdate == 0){silenceLenUpdate <<- silenceLenUpdate + 1}
 					updateNumericInput(session, paste(x[i][[primerColName]], 'Len', sep=''), value=lenVal)
 				}
-				if(updateValsItem(x[i][[primerColName]], NTVal, vals, group='NTs'))
+				if(vals$NTs[[x[i][[primerColName]]]] != NTVal) # updateValsItem(x[i][[primerColName]], NTVal, vals, group='NTs'))
 				{
 					# Only mark down 1 update for an import event instead one for each change made.
-					if(vals$updatingNTCount == 0){vals$updatingNTCount <- vals$updatingNTCount + 1}
+					if(silenceNTUpdate == 0){silenceNTUpdate <<- silenceNTUpdate + 1}
 					updateTextInput(session, paste(x[i][[primerColName]], 'NTs', sep=''), value=NTVal)
 				}
 			}
