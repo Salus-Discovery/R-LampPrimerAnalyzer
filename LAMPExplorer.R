@@ -586,7 +586,7 @@ renderPrimerControl <- function(seq, controlId, initLocs=c(1), Loc=1, initLen=20
 	fluidPage({
 		fluidRow(style = "height:20px;",
 					column(1, HTML(paste(tags$h4(tags$span(style=paste("color: ", getColor(controlId), sep=''), controlId), sep='')))),
-					column(1, checkboxInput(paste0(controlId, 'Check'), '', value=T)), #value=grepl('[12]', controlId))),
+					column(1, checkboxInput(paste0(controlId, 'Check'), '', value=ifelse(grepl("PNA", controlId), F, T))), #value=grepl('[12]', controlId))),
 					column(2, numericInput(paste0(controlId, 'Start'), 'Start', value=initStart)),
 					column(2, numericInput(paste0(controlId, 'Len'), 'Length', value=initLen)),
 					column(6, textInput(paste0(controlId, 'NTs'), 'Seq', value=paste(seq[initStart:(initStart+initLen-1)], collapse='')))
