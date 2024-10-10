@@ -529,8 +529,9 @@ ui <- fluidPage(
 						 				  'atcgaccacttcggcaaccgccgcctgcgtacggtcggcgagctgatccaaaaccagatccgggtcggcatgtcgcggatggagcgggtggtccgggagcggatgaccacccaggacgtggaggcgatcacaccgcagacgttgatcaacatccggccggtggtcgccgcgatcaaggagttcttcggcaccagccagctgagccaattcatgGACcagaacaacccgctgtcggggttgaccCACaagcgccgactgTCGgcgctggggcccggcggtctgtcacgtgagcgtgccgggctggaggtccgcgacgtgcacccgtcgcactacggccggatgtgcccgatcgaaacccctgaggggcccaacatcggtctgatcggctcgctgtcggtgtacgcgcgggtcaacccgttcgggttcatcgaaacgccgtaccgcaaggtggtcgacggcgtggttagcgacgagatcgtgtacctgaccgccgacgagga'
 						 ),
 						 hr(),
-						 fluidPage(fluidRow(column(6, numericInput("polyT", "FIP/BIP PolyT-Spacer Length:", 3)),
-						 						 column(6, numericInput("stabilityN", "End Stability Bp's:", 5))),
+						 fluidPage(fluidRow(column(4, selectInput("linker", "Linker NT", choices=c('a','g','t','c'), selected='a')),
+						 						 column(4, numericInput("polyT", "Linker Length", 3)),
+						 						 column(4, numericInput("stabilityN", "End Stability Bp's:", 5))),
 						 			 textInput('revCTool', 'Rev. Compl. Tool', placeholder='Auto-copy RevC to Clipboard'),
 						 			 textOutput('revCOutput'),
 						 			 actionButton("importButton", "Import Clipboard")),
@@ -818,8 +819,13 @@ server <- function(input, output, session) {
 		lapply(sensePrimerNames, updateValsGroupItem, group='Len', input=input, vals)
 	})
 	
+	observeEvent(input$linker, {
+		req(input$linker)
+		updateValsItem('linker', input$linker, vals)
+	})
+	
 	# Watch all the inputs and create a ground truth stored version of everything
-	observeEvent(list(vals$seq, vals$polyT, getInputs(sensePrimerNames, 'NTs', input)), {
+	observeEvent(list(vals$seq, vals$polyT, vals$linker, getInputs(sensePrimerNames, 'NTs', input)), {
 		tempPNABc <- input$PNABc
 		do.call('req', getInputs(sensePrimerNames, 'NTs', input))
 		req(vals$seq, vals$polyT)
@@ -830,13 +836,13 @@ server <- function(input, output, session) {
 		updateValsItem('LF', revC(vals$NTs$LFc, keepCase=T), vals, group='NTs')
 		updateValsItem('LB', vals$NTs$LB, vals, group='NTs')
 		updateValsItem('FIP', {
-			paste(c(vals$NTs$F1c, rep('t', vals$polyT), vals$NTs$F2), collapse='')	
+			paste(c(vals$NTs$F1c, rep(vals$linker, vals$polyT), vals$NTs$F2), collapse='')	
 		}, vals, group='NTs')
 		updateValsItem('BIP', {
-			paste(c(vals$NTs$B1c, rep('t', vals$polyT), vals$NTs$B2), collapse='')	
+			paste(c(vals$NTs$B1c, rep(vals$linker, vals$polyT), vals$NTs$B2), collapse='')	
 		}, vals, group='NTs')
-		updateValsItem('DBF', paste(c(rep('t', vals$polyT), vals$seq[vals$Start$F2:(vals$Start$F1-1)]), collapse=''), vals, group='NTs')
-		updateValsItem('DBB', paste(c(rep('t', vals$polyT), vals$seq[getValEnd('B2c', vals):(getValEnd('B1c', vals)+1)]), collapse=''), vals, group='NTs')
+		updateValsItem('DBF', paste(c(rep(vals$linker, vals$polyT), vals$seq[vals$Start$F2:(vals$Start$F1-1)]), collapse=''), vals, group='NTs')
+		updateValsItem('DBB', paste(c(rep(vals$linker, vals$polyT), vals$seq[getValEnd('B2c', vals):(getValEnd('B1c', vals)+1)]), collapse=''), vals, group='NTs')
 		updateValsItem('PNAF', {
 			# If the PNA straddles the start of F2
 			ifelse(vals$Start$PNAF < vals$Start$F2 && getValEnd('PNAF', vals) >= vals$Start$F2, 
@@ -890,7 +896,7 @@ server <- function(input, output, session) {
 					 revC(vals$NTs$PNABc, keepCase=T))
 		}, vals, group='NTs')
 		updateValsItem('DBAll', {
-			paste(c(vals$NTs$F1c, rep('t', input$polyT), vals$seq[vals$Start$F2:getValEnd('B2c', vals)], rep('t', input$polyT), revC(vals$NTs$B1c, keepCase=T)), collapse='')
+			paste(c(vals$NTs$F1c, rep(vals$linker, input$polyT), vals$seq[vals$Start$F2:getValEnd('B2c', vals)], rep(vals$linker, input$polyT), revC(vals$NTs$B1c, keepCase=T)), collapse='')
 		}, vals)
 		updateValsItem('DBStart', vals$Start$F2-vals$polyT-vals$Len$F1, vals)
 		updateValsItem('DBEnd', (vals$Start$B2c + vals$Len$B2c - 1)+vals$polyT+vals$Len$B1c, vals)
@@ -1127,6 +1133,7 @@ server <- function(input, output, session) {
 		ret[, Len:=length(s2c(Seq)), by='Primer']
 		ret[, c('Tm','HpTm','HpDeltaG','HpStruct'):=getPrimerStats(Seq), by='Primer']
 		checked <- gsub('c','',names(vals$Check)[as.logical(vals$Check)])
+		checked <- checked[checked %!in% c('F1','F2','B1','B2')]
 		primerBaseNames <- gsub('c','',ret$Primer)
 		primersToCalc <- primerBaseNames %in% c(checked, 'FIP', 'BIP')
 		# browser()
