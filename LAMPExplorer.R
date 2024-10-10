@@ -37,15 +37,7 @@ library(ggplot2)
 library(scales)
 library(purrr)
 
-sink(stdout(), type="message")
-
-getMultiVals = function(field, vals){
-	isolate(purrr::pluck(vals, !!!field))
-}
-
-setMultiVals = function(rv,field,value){
-	isolate(purrr::pluck(rv, !!!field) <- value )
-}
+# sink(stdout(), type="message")
 
 fold <- function(x)
 {
@@ -205,7 +197,7 @@ plotHairpin <- function(seq, fullHairpinEnergy, dbSeq, dbStart, dbEnd, starts, e
 	}
 	ret <- ggplot(NULL) +
 		geom_rect(data=data.table(Primer=factor(sensePrimerNames, levels=sensePrimerNames), xmin=starts, xmax=ends), aes(xmin=xmin, xmax=xmax, ymin=-Inf, ymax=Inf, fill=Primer), color='black')	+
-		scale_fill_manual(values = setColor(getColor(sensePrimerNames), 0.3)) +
+		scale_fill_manual(values = setColor(getPrimerColor(sensePrimerNames), 0.3)) +
 		geom_path(data=data.table(x=1:calcLen(seq), y=hairpin), aes(x=x, y=y)) +
 		geom_path(data=data.table(x=bp, y=hairpin.new), aes(x=x, y=y), linewidth=3) +
 		geom_hline(yintercept=-4, col=setColor('red', 0.2)) +
@@ -226,9 +218,9 @@ plotHairpin <- function(seq, fullHairpinEnergy, dbSeq, dbStart, dbEnd, starts, e
 
 plotEnergies <- function(results)
 {
-	ret <- ggplot(data=results[!is.na(value) & variable != 'KeyEndStability'], aes( x=Primer, y=value, fill=variable)) +
+	ret <- ggplot(data=results[variable != 'KeyEndStability'], aes( x=Primer, y=value, fill=variable)) +
 		geom_col() +
-		geom_col(data=results[!is.na(value) & variable == 'KeyEndStability']) +
+		geom_col(data=results[variable == 'KeyEndStability']) +
 		geom_hline(yintercept=c(4,-4)) +
 		labs(x='Sequence', y='Energy [kJ/mol]') +
 		scale_y_continuous(limits=c(-25,10),oob = rescale_none) +
@@ -243,7 +235,7 @@ plotTm <- function(results)
 {
 	ret <- ggplot(data=results, aes(x=Primer, y=Tm, fill=Primer)) + 
 		geom_col() +
-		scale_fill_manual(values = getColor(as.character(levels(results$Primer)))) + 
+		scale_fill_manual(values = getPrimerColor(as.character(levels(results$Primer)))) + 
 		geom_hline(yintercept=c(50,60,70)) +
 		scale_y_continuous(limits=c(40,80),oob = rescale_none) +
 		theme(axis.text=element_text(size=rel(2.0)),
@@ -274,7 +266,7 @@ plotGC <- function(seq, fullGC, dbSeq, dbStart, dbEnd, starts, ends, sensePrimer
 	
 	ret <- ggplot(NULL) +
 		geom_rect(data=data.table(Primer=factor(sensePrimerNames, levels=sensePrimerNames), xmin=starts, xmax=ends), aes(xmin=xmin, xmax=xmax, ymin=-Inf, ymax=Inf, fill=Primer), color='black')	+
-		scale_fill_manual(values = setColor(getColor(sensePrimerNames), 0.3)) +
+		scale_fill_manual(values = setColor(getPrimerColor(sensePrimerNames), 0.3)) +
 		geom_path(data=data.table(x=seq_along(gc.frac), y=gc.frac), aes(x=x, y=y)) +
 		geom_path(data=data.table(x=start.new:(start.new+(length(gc.frac.new)-1)), y=gc.frac.new), aes(x=x, y=y), linewidth=3) +
 		geom_hline(yintercept=0.6, col=setColor('red', 0.2)) +
@@ -291,13 +283,6 @@ plotGC <- function(seq, fullGC, dbSeq, dbStart, dbEnd, starts, ends, sensePrimer
 				legend.position='none',
 				panel.border = element_rect(colour = "black", fill=NA, size=1))
 	return(ret)
-}
-
-shade <- function(start, end, color, alpha=1)
-{
-	ymin <- par('usr')[3]
-	ymax <- par('usr')[4]
-	polygon(c(start, end, end, start), c(ymin, ymin, ymax, ymax), col=setColor(color, alpha))
 }
 
 setColor <- function(my.colors, alpha)
@@ -349,21 +334,21 @@ getPrimerStats <- function(x)
 	return(ret)
 }
 
-getColor <- function(...)
+getPrimerColor <- function(...)
 {
 	args <- list(...)
 	if(length(args) == 1 && length(args[[1]])>1)
 	{
-		return(getPrimerColors()[match(as.character(args[[1]]), Primer)]$plotColor)
+		return(getAllPrimerColors()[match(as.character(args[[1]]), Primer)]$plotColor)
 	}
 	else
 	{
-		return(getPrimerColors()[match(args, Primer)]$plotColor)
+		return(getAllPrimerColors()[match(args, Primer)]$plotColor)
 	}
 	
 }
 
-getPrimerColors <- function()
+getAllPrimerColors <- function()
 {
 	return(data.table(Primer=c('F3',
 										'F3c',
@@ -433,7 +418,7 @@ getCombos <- function(x, colnames=c('Var1','Var2'))
 	return(ret)
 }
 
-getHtdStats <- function(primers, seqs, func=daFunc)
+getDimerComboStats <- function(primers, seqs, func=daFunc)
 {
 	duh2 <- data.table(getCombos(primers, colnames=c('P1','P2')), getCombos(seqs, c('Seq1','Seq2')))
 	duh2 <- duh2[duh2[, func(Seq1, Seq2), by=c('P1','P2')], on=c('P1','P2')]
@@ -445,7 +430,6 @@ getHtdStats <- function(primers, seqs, func=daFunc)
 	blah <- blah[, c(list(P2=P2[max.i]), lapply(mget(valNames), function(x){x[max.i[1]]})), by='P1']
 	return(blah[match(primers, P1), mget(c('P2', valNames))])
 }
-
 
 getDimerStats <- function(x, y)
 {
@@ -494,16 +478,16 @@ ui <- fluidPage(
 	tags$head(
 		# Note the wrapping of the string in HTML()
 		tags$style(HTML(paste("
-      markF3	{background-color: ", getColor('F3'), "; 	color: black;}
-      markF2	{background-color: ", getColor('F2'), ";	color: black;}
-      markLFc	{background-color: ", getColor('LFc'), ";	color: black;}
-      markF1	{background-color: ", getColor('F1'), ";	color: black;}
-      markB1c	{background-color: ", getColor('B1c'), ";	color: black;}
-      markLB	{background-color: ", getColor('LB'), ";	color: black;}
-      markB2c	{background-color: ", getColor('B2c'), ";	color: black;}
-      markB3c	{background-color: ", getColor('B3c'), ";	color: black;}
-      markPNAF {background-color: ", getColor('PNAF'), ";	color: black;}
-      markPNABc{background-color: ", getColor('PNABc'), ";	color: black;}
+      markF3	{background-color: ", getPrimerColor('F3'), "; 	color: black;}
+      markF2	{background-color: ", getPrimerColor('F2'), ";	color: black;}
+      markLFc	{background-color: ", getPrimerColor('LFc'), ";	color: black;}
+      markF1	{background-color: ", getPrimerColor('F1'), ";	color: black;}
+      markB1c	{background-color: ", getPrimerColor('B1c'), ";	color: black;}
+      markLB	{background-color: ", getPrimerColor('LB'), ";	color: black;}
+      markB2c	{background-color: ", getPrimerColor('B2c'), ";	color: black;}
+      markB3c	{background-color: ", getPrimerColor('B3c'), ";	color: black;}
+      markPNAF {background-color: ", getPrimerColor('PNAF'), ";	color: black;}
+      markPNABc{background-color: ", getPrimerColor('PNABc'), ";	color: black;}
       ", collapse='')))
 	),
 	tags$script("
@@ -585,7 +569,7 @@ renderPrimerControl <- function(seq, controlId, initLocs=c(1), Loc=1, initLen=20
 	initStart <- ifelse(Loc > 0, initLocs[Loc], 1)
 	fluidPage({
 		fluidRow(style = "height:20px;",
-					column(1, HTML(paste(tags$h4(tags$span(style=paste("color: ", getColor(controlId), sep=''), controlId), sep='')))),
+					column(1, HTML(paste(tags$h4(tags$span(style=paste("color: ", getPrimerColor(controlId), sep=''), controlId), sep='')))),
 					column(1, checkboxInput(paste0(controlId, 'Check'), '', value=ifelse(grepl("PNA", controlId), F, T))), #value=grepl('[12]', controlId))),
 					column(2, numericInput(paste0(controlId, 'Start'), 'Start', value=initStart)),
 					column(2, numericInput(paste0(controlId, 'Len'), 'Length', value=initLen)),
@@ -618,8 +602,10 @@ updateValsGroupItem <- function(id, group, input, vals)
 		if(length(vals[[group]][[id]])==0 || any(vals[[group]][[id]] != val))
 		{
 			vals[[group]][[id]] <- val
+			return(TRUE)
 		}
 	}
+	return(FALSE)
 }
 
 updateValsItem <- function(id, val, vals, group=NULL)
@@ -780,7 +766,7 @@ server <- function(input, output, session) {
 	})
 	
 	primerColors <- reactive({
-		getColor(sensePrimerNames)
+		getPrimerColor(sensePrimerNames)
 	})
 	
 	observeEvent(list(input$Seq, vals$render > 0), {
@@ -1137,7 +1123,7 @@ server <- function(input, output, session) {
 		primerBaseNames <- gsub('c','',ret$Primer)
 		primersToCalc <- primerBaseNames %in% c(checked, 'FIP', 'BIP')
 		# browser()
-		ret[primersToCalc, c('P2','DimerTm','DimerDeltaG','DimerStruct'):=getHtdStats(Primer, Seq, func=getDimerStats)]
+		ret[primersToCalc, c('P2','DimerTm','DimerDeltaG','DimerStruct'):=getDimerComboStats(Primer, Seq, func=getDimerStats)]
 		# ret[Primer %in% c('FIP','BIP'), Tm:='NA']
 		ret[, KeyEndStability:=ifelse(Primer %in% c('F1c','B1c'), Stability5p, Stability3p)]
 		
@@ -1146,16 +1132,16 @@ server <- function(input, output, session) {
 		ret2[, value:=suppressWarnings(as.numeric(value))]
 		ret2[value > 0, value:=0]
 		ret2[variable=='KeyEndStability', value:=-1*value]
-		ret2[, Primer:=factor(ret2$Primer, levels=primerNames)]
+		ret2[, Primer:=factor(Primer, levels=primerNames)]
 		
 		# Data for Tm plot
 		ret3 <- ret[, c('Primer','Tm')]
 		ret3[, Tm:=suppressWarnings(as.numeric(Tm))]
-		primerColors <- getPrimerColors()
+		primerColors <- getAllPrimerColors()
 		setkey(ret3, Primer)
 		setkey(primerColors, Primer)
 		ret3 <- primerColors[ret3]
-		ret3[, Primer:=factor(ret3$Primer, levels=primerNames)]
+		ret3[, Primer:=factor(Primer, levels=primerNames)]
 		vals$results2 <- ret2
 		vals$results3 <- ret3
 		vals$results <- ret
