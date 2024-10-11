@@ -108,7 +108,6 @@ revC <- function(x, keepCase=F)
 {
 	if(any(is.na(x)) || any(grepl( '[^AGTCagtcNn]', x)))
 	{
-		browser()
 		stop("Found a non coding character in revC.")
 	}
 	if(length(x) == 1)
@@ -827,8 +826,10 @@ server <- function(input, output, session) {
 		updateValsItem('BIP', {
 			paste(c(vals$NTs$B1c, rep(vals$linker, vals$polyT), vals$NTs$B2), collapse='')	
 		}, vals, group='NTs')
-		updateValsItem('DBF', paste(c(rep(vals$linker, vals$polyT), vals$seq[vals$Start$F2:(vals$Start$F1-1)]), collapse=''), vals, group='NTs')
-		updateValsItem('DBB', paste(c(rep(vals$linker, vals$polyT), vals$seq[getValEnd('B2c', vals):(getValEnd('B1c', vals)+1)]), collapse=''), vals, group='NTs')
+		updateValsItem('DBF', paste(c(rep(vals$linker, vals$polyT), s2c(vals$NTs$F2), vals$seq[(getValEnd('F2', vals)+1):(vals$Start$F1-1)]), collapse=''), vals, group='NTs')
+		updateValsItem('DBB', paste(c(vals$seq[(getValEnd('B1c', vals)+1):(vals$Start$B2c-1)], s2c(vals$NTs$B2c), revC(rep(vals$linker, vals$polyT), keepCase=T)), collapse=''), vals, group='NTs')
+		# updateValsItem('DBF', paste(c(rep(vals$linker, vals$polyT), vals$seq[vals$Start$F2:(vals$Start$F1-1)]), collapse=''), vals, group='NTs')
+		# updateValsItem('DBB', paste(c(rep(vals$linker, vals$polyT), vals$seq[getValEnd('B2c', vals):(getValEnd('B1c', vals)+1)]), collapse=''), vals, group='NTs')
 		updateValsItem('PNAF', {
 			# If the PNA straddles the start of F2
 			ifelse(vals$Start$PNAF < vals$Start$F2 && getValEnd('PNAF', vals) >= vals$Start$F2, 
@@ -859,6 +860,7 @@ server <- function(input, output, session) {
 			ifelse(vals$Start$PNABc < getValEnd('B2c', vals) && getValEnd('PNABc', vals) >= getValEnd('B2c', vals), 
 					 paste(
 					 	{
+					 		browser()
 					 		# Paste together the upstream portion of FIP with the downstream portion of the PNAF
 					 		BIPN <- length(vals$NTs$BIP)
 					 		B2cN <- vals$Len$B2c
