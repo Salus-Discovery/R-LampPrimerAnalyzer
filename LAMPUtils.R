@@ -704,7 +704,7 @@ plotHairpin <- function(seq, fullHairpinEnergy, dbSeq, dbStart, dbEnd, starts, e
 
 plotEnergies <- function(results)
 {
-	ret <- ggplot(data=results[variable != 'KeyEndStability'], aes( x=Primer, y=value, fill=variable)) +
+	ret <- ggplot(data=results[variable != 'KeyEndStability'], aes( x=factor(Primer, finalPrimerNames), y=value, fill=variable)) +
 		geom_col() +
 		geom_col(data=results[variable == 'KeyEndStability']) +
 		geom_hline(yintercept=c(4,-2)) +
@@ -942,9 +942,10 @@ plotHairpin <- function(seq, fullHairpinEnergy, dbSeq, dbStart, dbEnd, starts, e
 
 plotEnergies <- function(results)
 {
-	ret <- ggplot(data=results[!is.na(value) & variable != 'KeyEndStability'], aes( x=Primer, y=value, fill=variable)) +
+	ret <- ggplot(data=results[!is.na(value) & variable == 'KeyEndStability'], aes( x=Primer, y=value, fill=variable)) +
 		geom_col() +
-		geom_col(data=results[!is.na(value) & variable == 'KeyEndStability']) +
+		geom_col(data=results[!is.na(value) & variable != 'KeyEndStability']) +
+		scale_fill_manual(values = hue_pal()(3)[c(3,1,2)]) + 
 		geom_hline(yintercept=c(4,-4)) +
 		labs(x='Sequence', y='Energy [kJ/mol]') +
 		scale_y_continuous(limits=c(-25,10),oob = rescale_none) +
@@ -1022,6 +1023,8 @@ getPrimerColor <- function(...)
 	}
 	
 }
+
+finalPrimerNames <- c('F3','B3','F2','B2','F1c','B1c','FIP','BIP','LF','LB','PNAF','PNAB','DBF','DBB')
 
 getAllPrimerColors <- function()
 {
@@ -1183,10 +1186,9 @@ getUniqueDimerComboStats <- function(primers, seqs, func=daFunc, mv=50.0, dv=4.4
 calcResultsTables <- function(settings)
 {
 	# toInclude <- c(input$F3Check, input$B3Check, T, T, T, T, T, T, input$LFcCheck, input$LBCheck, input$PNACheck, input$PNAcCheck, T, T)
-	primerNames <- c('F3','B3','F2','B2','F1c','B1c','FIP','BIP','LF','LB','PNAF','PNAB','DBF','DBB')
 	req(vals$seq, allLegal(), all(as.logical(vals$NTs != '')))
-	ret <- data.table(Primer=primerNames,
-							Seq=as.character(sapply(lapply(primerNames, function(x){vals$NTs[[x]]}), paste, collapse='')),
+	ret <- data.table(Primer=finalPrimerNames,
+							Seq=as.character(sapply(lapply(finalPrimerNames, function(x){vals$NTs[[x]]}), paste, collapse='')),
 							Sense=c('Sense','Antisense','Sense','Antisense','Sense','Antisense','NA','NA','Antisense','Sense','Sense','Antisense','Sense','Sense'))
 	ret[, Stability3p:=getStability(Seq, n=vals$stabilityN, threePrimeEnd=T), by='Primer']
 	ret[, Stability5p:=getStability(Seq, n=vals$stabilityN, threePrimeEnd=F), by='Primer']
@@ -1217,7 +1219,7 @@ calcResultsTables <- function(settings)
 	ret2[, value:=suppressWarnings(as.numeric(value))]
 	ret2[value > 0, value:=0]
 	ret2[variable=='KeyEndStability', value:=-1*value]
-	ret2[, Primer:=factor(ret2$Primer, levels=primerNames)]
+	ret2[, Primer:=factor(ret2$Primer, levels=finalPrimerNames)]
 	
 	# Data for Tm plot
 	ret3 <- ret[, c('Primer','Tm')]
@@ -1226,7 +1228,7 @@ calcResultsTables <- function(settings)
 	setkey(ret3, Primer)
 	setkey(primerColors, Primer)
 	ret3 <- primerColors[ret3]
-	ret3[, Primer:=factor(ret3$Primer, levels=primerNames)]
+	ret3[, Primer:=factor(ret3$Primer, levels=finalPrimerNames)]
 	vals$results2 <- ret2
 	vals$results3 <- ret3
 	vals$results <- ret
