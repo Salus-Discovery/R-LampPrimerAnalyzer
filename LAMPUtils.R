@@ -21,17 +21,15 @@
 # 
 # BiocManager::install("XNAString")
 
-source('~/Documents/GitHub/R-General/.Rprofile')
 library(data.table)
 library(zoo)
 library(grDevices)
+library(XNAString)
 library(Biostrings)
 library(seqinr)
 library(primer3)
 library(pwalign)
 library(ggplot2)
-library(scales)
-library(purrr)
 
 ##### Constants #####
 ##### Constants #####
