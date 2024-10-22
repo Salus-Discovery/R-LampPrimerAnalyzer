@@ -32,9 +32,10 @@ library(pwalign)
 library(ggplot2)
 
 ##### Constants #####
-##### Constants #####
-rpoB_500 <- 'atcgaccacttcggcaaccgccgcctgcgtacggtcggcgagctgatccaaaaccagatccgggtcggcatgtcgcggatggagcgggtggtccgggagcggatgaccacccaggacgtggaggcgatcacaccgcagacgttgatcaacatccggccggtggtcgccgcgatcaaggagttcttcggcaccagccagctgagccaattcatgGACcagaacaacccgctgtcggggttgaccCACaagcgccgactgTCGgcgctggggcccggcggtctgtcacgtgagcgtgccgggctggaggtccgcgacgtgcacccgtcgcactacggccggatgtgcccgatcgaaacccctgaggggcccaacatcggtctgatcggctcgctgtcggtgtacgcgcgggtcaacccgttcgggttcatcgaaacgccgtaccgcaaggtggtcgacggcgtggttagcgacgagatcgtgtacctgaccgccgacgagga'
-rpoB_500_c <- s2c(rpoB_500)
+sensePrimerNames <- c('F3','F2','F1','LFc','B1c','B2c','B3c','LB','PNAF','PNABc')
+dependentPrimerNames <- c('F1c', 'B2', 'B3', 'LF', 'LB', 'PNAB', 'FIP', 'BIP', 'DBF', 'DBB')
+finalPrimerNames <- c('F3','B3','F2','B2','F1c','B1c','FIP','BIP','LF','LB','PNAF','PNAB','DBF','DBB')
+allPrimerNames <- c('F3','F3c','F2','F2c','F1','F1c','B1','B1c','B2','B2c','B3','B3c','LF','LFc','LB','LBc','FIP','BIP','DBF','DBB','PNAF','PNAFc','PNAB','PNABc')
 
 # Per PrimerExplorerV5 defaults
 # 5' Stability: < -3
@@ -81,6 +82,10 @@ paramsDNA <- list(
 	)
 )
 
+##### TB Constants #####
+rpoB_500 <- 'atcgaccacttcggcaaccgccgcctgcgtacggtcggcgagctgatccaaaaccagatccgggtcggcatgtcgcggatggagcgggtggtccgggagcggatgaccacccaggacgtggaggcgatcacaccgcagacgttgatcaacatccggccggtggtcgccgcgatcaaggagttcttcggcaccagccagctgagccaattcatgGACcagaacaacccgctgtcggggttgaccCACaagcgccgactgTCGgcgctggggcccggcggtctgtcacgtgagcgtgccgggctggaggtccgcgacgtgcacccgtcgcactacggccggatgtgcccgatcgaaacccctgaggggcccaacatcggtctgatcggctcgctgtcggtgtacgcgcgggtcaacccgttcgggttcatcgaaacgccgtaccgcaaggtggtcgacggcgtggttagcgacgagatcgtgtacctgaccgccgacgagga'
+rpoB_500_c <- s2c(rpoB_500)
+
 ##### Helper Functions #####
 
 getDefault <- function(x, default, test=is.null)
@@ -118,12 +123,12 @@ appendToList <- function(items, ...)
 	return(items)
 }
 
-updateList <- function(items, ...)
+updateList <- function(items, ..., allowNew=F)
 {
 	# Default values in list1
 	# Overriding values in list2
 	args <- list(...)
-	if(!all(names(args) %in% names(items)))
+	if(!allowNew && !all(names(args) %in% names(items)))
 	{
 		stop('Item to update does not exist in list.')
 	}
@@ -340,7 +345,7 @@ getSeqFromStartAndLen <- function(start, len, seq)
 
 getStartFromSeq <- function(primer, target)
 {
-	temp <- pwalign::pairwiseAlignment(primer, target, type='local', gapOpening=1000000, gapExtension=1000000)
+	temp <- pwalign::pairwiseAlignment(toUpper(primer), toUpper(target), type='local', gapOpening=1000000, gapExtension=1000000)
 	return(start(subject(temp)))
 }
 
@@ -608,59 +613,6 @@ getPrimerColor <- function(...)
 	
 }
 
-getAllPrimerColors <- function()
-{
-	return(data.table(Primer=c('F3',
-										'F3c',
-										'F2',
-										'F2c',
-										'F1',
-										'F1c',
-										'B1',
-										'B1c',
-										'B2',
-										'B2c',
-										'B3',
-										'B3c',
-										'LF',
-										'LFc',
-										'LB',
-										'LBc',
-										'FIP',
-										'BIP',
-										'DBF',
-										'DBB',
-										'PNAF',
-										'PNAFc',
-										'PNAB',
-										'PNABc'),
-							plotColor=c('#99ff99', # F3
-											'#99ff99', # F3
-											'#66ffff', # F2
-											'#66ffff', # F2
-											'#ffff66', # F1
-											'#ffff66', # F1
-											'#ffff66', # B1c
-											'#ffff66', # B1c
-											'#66ffff', # B2c
-											'#66ffff', # B2c
-											'#99ff99', # B3c
-											'#99ff99', # B3c
-											'#cc99ff', # LFc
-											'#cc99ff', # LFc
-											'#cc99ff', # LB
-											'#cc99ff', # LB
-											'#003399', # FIP
-											'#003399', # BIP
-											'#ff0066', # DBF
-											'#ff0066', # DBB
-											'#ff3300', # PNAF
-											'#ff3300', # PNAF
-											'#ff3300', # PNABc
-											'#ff3300') # PNABc
-	))
-}
-
 plotHairpin <- function(seq, fullHairpinEnergy, dbSeq, dbStart, dbEnd, starts, ends, sensePrimerNames)
 {
 	bp <- dbStart:dbEnd
@@ -702,28 +654,18 @@ plotHairpin <- function(seq, fullHairpinEnergy, dbSeq, dbStart, dbEnd, starts, e
 	return(ret)
 }
 
-plotEnergies <- function(results)
-{
-	ret <- ggplot(data=results[variable != 'KeyEndStability'], aes( x=factor(Primer, finalPrimerNames), y=value, fill=variable)) +
-		geom_col() +
-		geom_col(data=results[variable == 'KeyEndStability']) +
-		geom_hline(yintercept=c(4,-2)) +
-		labs(x='Sequence', y='Energy [kJ/mol]') +
-		scale_y_continuous(limits=c(-15,10),oob = rescale_none) +
-		theme(axis.text=element_text(size=rel(2.0)),
-				axis.title=element_text(size=rel(2.0)),
-				legend.text=element_text(size=rel(2.0)),
-				legend.title=element_text(size=rel(2.0)))
-	return(ret)
-}
-
 plotTm <- function(results)
 {
-	ret <- ggplot(data=results, aes(x=Primer, y=Tm, fill=Primer)) + 
+	# browser()
+	# setorder(results, PrimerFactor)
+	results2 <- copy(results)
+	results2[, PrimerFactor:=factor(Primer, levels=finalPrimerNames)]
+	setorder(results2, PrimerFactor)
+	ret <- ggplot(data=results2, aes(x=PrimerFactor, y=Tm, fill=PrimerFactor)) + 
 		geom_col() +
-		scale_fill_manual(values = getPrimerColor(as.character(levels(results$Primer)))) + 
+		scale_fill_manual(values = getPrimerColor(as.character(results2$PrimerFactor))) + 
 		geom_hline(yintercept=c(defaultTemps$F1, defaultTemps$F2)) +
-		scale_y_continuous(limits=c(40,80),oob = rescale_none) +
+		scale_y_continuous(limits=c(50,82),oob = rescale_none) +
 		theme(axis.text=element_text(size=rel(2.0)),
 				axis.title=element_text(size=rel(2.0)),
 				legend.text=element_text(size=rel(2.0)),
@@ -771,173 +713,15 @@ plotGC <- function(seq, fullGC, dbSeq, dbStart, dbEnd, starts, ends, sensePrimer
 	return(ret)
 }
 
-# data.table.plot.all(TmList[abs(Tm-52) < 1], 'Start', 'Tm', type='p', by='Len', ylim=c(40,80))
-# data.table.plot.all(HmdList, 'Start', 'HmdDeltaG', type='p', by='Len', ylim=c(-10,5))
-sensePrimerNames <- c('F3','F2','F1','LFc','B1c','B2c','B3c','LB','PNAF','PNABc')
-dependentPrimerNames <- c('F1c', 'B2', 'B3', 'LF', 'LB', 'PNAB', 'FIP', 'BIP', 'DBF', 'DBB')
-
-getPossibleWindowsFromBounds <- function(type, TmDelta=1, bMin, bMax, TmOffset=0, TmTarget=defaultTemps[[type]], HmdLimit=-7, HpLimit=-1, idName='primerId')
+plotPrimerEnergies <- function(primerSet)
 {
-	ret <- data.table(Type=type, InitList[abs(Tm-TmTarget) <= TmDelta & Start>=bMin & End<=bMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
-	ret[, c(idName):=1:.N]
-	return(ret[!is.na(Start)])
-}
-
-getPossibleWindowsOverlappingIndex <- function(type, TmDelta=1, Index, TmOffset=0, TmTarget=defaultTemps[[type]], HmdLimit=-7, HpLimit=-1, idName='primerId')
-{
-	ret <- data.table(Type=type, InitList[abs(Tm-TmTarget) <= TmDelta & Start<=Index & End>=Index & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
-	ret[, c(idName):=1:.N]
-	return(ret[!is.na(Start)])
-}
-
-getPossibleWindowsFromStart <- function(type, TmDelta=1, startMin, startMax, TmOffset=0, TmTarget=defaultTemps[[type]], HmdLimit=-7, HpLimit=-1, idName='primerId')
-{
-	ret <- data.table(Type=type, InitList[abs(Tm-TmTarget) <= TmDelta & Start>=startMin & Start<=startMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
-	ret[, c(idName):=1:.N]
-	return(ret[!is.na(Start)])
-}
-
-getPossibleWindowsFromEnd <- function(type, TmDelta=1, endMin, endMax, TmOffset=0, TmTarget=defaultTemps[[type]], HmdLimit=-7, HpLimit=-1, idName='primerId')
-{
-	ret <- data.table(Type=type, InitList[abs(Tm-TmTarget) <= TmDelta & End>=endMin & End<=endMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
-	ret[, c(idName):=1:.N]
-	return(ret[!is.na(Start)])
-}
-
-# primerSetIsLegal <- function(primerSet)
-# {
-# 	
-# 	if(any(duplicated(primerSet$Id))){return(FALSE)}
-# 	if(any(duplicated(primerSet$Type))){return(FALSE)}
-# 	if(nrow(primerSet[Type=='F3'])==1 && any(primerSet[Type=='F3', list(End=Start+Len)] > ){return(FALSE)}
-# }
-
-tryPrimersWithPrimerSet <- function(primers, primerSet)
-{
-	primers <- primers[, data.table(rbindlist(list(primerSet[, names(primerSet) != 'primerId', with=F], .SD), use.names=T)), by='primerId']
-	return(primers[])
-}
-
-tryPrimersWithPrimerSets <- function(primers, primerSets)
-{
-	setnames(primerSets, old='primerId', new='primerId_temp')
-	ret <- primerSets[, tryPrimersWithPrimerSet(primers, .SD), by='primerId_temp']
-	ret[, primerId:=.GRP, by=c('primerId','primerId_temp')]
-	ret[, primerId_temp:=NULL]
-	return(ret[])
-}
-
-# makeIdString <- function(primers)
-# {
-# 	paste.cols()
-# }
-
-tryPrimersAdjacentToPrimerSets <- function(primerSets, right=T, relToType, newType, TmDelta=1, minSpace, maxSpace, TmOffset=0, TmTarget=defaultTemps[[newType]], HmdLimit=-7, HpLimit=-4)
-{
-	setnames(primerSets, old='primerId', new='primerId_temp')
-	if(right)
-	{
-		ret <- primerSets[, tryPrimersWithPrimerSet(getPossibleWindowsFromStart(type=newType,
-																										TmDelta=TmDelta,
-																										startMin=(End[Type==relToType] + 1) + minSpace,
-																										startMax=(End[Type==relToType] + 1) + maxSpace,
-																										TmOffset=TmOffset,
-																										TmTarget=TmTarget,
-																										HmdLimit=HmdLimit,
-																										HpLimit = HpLimit),
-																  .SD), by='primerId_temp']
-	}
-	else
-	{
-		ret <- primerSets[, tryPrimersWithPrimerSet(getPossibleWindowsFromEnd(type=newType,
-																									 TmDelta=TmDelta,
-																									 endMin=(Start[Type==relToType] - 1) - maxSpace,
-																									 endMax=(Start[Type==relToType] - 1) - minSpace,
-																									 TmOffset=TmOffset,
-																									 TmTarget=TmTarget,
-																									 HmdLimit=HmdLimit,
-																									 HpLimit=HpLimit),
-																  .SD), by='primerId_temp']
-	}
-	ret[, primerId:=.GRP, by=c('primerId','primerId_temp')]
-	ret[, primerId_temp:=NULL]
-	return(ret[])
-}
-
-assemblePrimers <- function(primerSet, polyNT='a', n=3)
-{
-	F1r <- primerSet[Type=='F1']
-	F2r <- primerSet[Type=='F2']
-	B1cr <- primerSet[Type=='B1c']
-	B2cr <- primerSet[Type=='B2c']
-	F1 <- s2c(F1r$Seq)
-	F1c <- revC(F1, keepCase=T)
-	F2 <- s2c(F2r$Seq)
-	B1c <- s2c(B1cr$Seq) # rpoB_500_c[primerSet[Type=='B1c']$Start:primerSet[Type=='B1c']$End]
-	B2c <- s2c(B2cr$Seq) # rpoB_500_c[primerSet[Type=='B2c']$Start:primerSet[Type=='B2c']$End]
-	B2 <- revC(B2c, keepCase=T)
-	FIP <- paste(c(F1c, rep(polyNT, n), F2), collapse='') 
-	BIP <- paste(c(B1c, rep(polyNT, n), B2), collapse='')
-	DBF <- paste(c(rep(polyNT, n), F2, rpoB_500_c[(F2r$End+1):(F1r$Start-1)]), collapse='')
-	DBB <- paste(c(rpoB_500_c[(B1cr$End+1):(B2cr$Start-1)], B2c, revC(c(rep(polyNT, n)), keepCase=T)), collapse='')
-	ret <- data.table(Type=c('F1c','F2','B1c','B2','FIP','BIP','DBF','DBB'), 
-							Len=c(F1r$Len, F2r$Len, B1cr$Len, B2cr$Len, calcLen(FIP), calcLen(BIP), calcLen(DBF), calcLen(DBB)), 
-							Tm=c(F1r$Tm, F2r$Tm, B1cr$Tm, B2cr$Tm, getTm(FIP), getTm(BIP), NA, NA), 
-							HmdDeltaG=c(F1r$HmdDeltaG, F2r$HmdDeltaG, B1cr$HmdDeltaG, B2cr$HmdDeltaG, getHmd(FIP)$HmdDeltaG, getHmd(BIP)$HmdDeltaG, NA, NA), 
-							Start=c(F1r$Start, F2r$Start, B1cr$Start, B2cr$Start, F2r$End-calcLen(FIP)+1, B2cr$Start, F2r$Start-n, B1cr$End+1), 
-							End=c(F1r$End, F2r$End, B1cr$End, B2cr$End, F2r$End, B2cr$Start+calcLen(BIP)-1, F1r$Start-1, B2cr$End+n), 
-							Seq=c(paste(F1c, collapse=''), paste(F2, collapse=''), paste(B1c, collapse=''), paste(B2, collapse=''), FIP, BIP, DBF, DBB),
-							Id=c(F1r$Id,
-								  F2r$Id,
-								  B1cr$Id,
-								  B2cr$Id,
-								  paste(F1r$Id, '.', F2r$Id, sep=''), 
-								  paste(B1cr$Id, '.', B2cr$Id, sep=''),
-								  paste(F1r$Id, '.', F2r$Id, sep=''), 
-								  paste(B1cr$Id, '.', B2cr$Id, sep=''))
-	)
-	return(ret)
-}
-
-##### Plotting #####
-
-plotHairpin <- function(seq, fullHairpinEnergy, dbSeq, dbStart, dbEnd, starts, ends, sensePrimerNames)
-{
-	bp <- dbStart:dbEnd
-	seq.new <- s2c(dbSeq)
-	hairpin.new <- rollapply(seq.new, width=25, FUN=function(x){return(getHp(x)$HpDeltaG)}, partial=T, align='center')
-	hairpin.new[is.na(hairpin.new) | hairpin.new > 0] <- 0
-	# validBp <- bp[bp > 0 & bp < length(seq)]
-	hairpin <- fullHairpinEnergy # rollapply(seq, width=25, FUN=function(x){return(getHp(x)$HpDeltaG/1000)}, partial=T, align='center')
-	# hairpin <- rollapply(seq[validBp], width=25, FUN=function(x){return(getHp(x)$HpDeltaG/1000)}, partial=T, align='center')
-	hairpin[is.na(hairpin) | hairpin > 0] <- 0
-	if(any(seq %in% c('A','G','T','C')))
-	{
-		codons <- which(seq %in% c('A','G','T','C'))
-	}
-	else
-	{
-		codons <- c()
-	}
-	ret <- ggplot(NULL) +
-		geom_rect(data=data.table(Primer=factor(sensePrimerNames, levels=sensePrimerNames), xmin=starts, xmax=ends), aes(xmin=xmin, xmax=xmax, ymin=-Inf, ymax=Inf, fill=Primer), color='black')	+
-		scale_fill_manual(values = setColor(getPrimerColor(sensePrimerNames), 0.3)) +
-		geom_path(data=data.table(x=1:calcLen(seq), y=hairpin), aes(x=x, y=y)) +
-		geom_path(data=data.table(x=bp, y=hairpin.new), aes(x=x, y=y), linewidth=3) +
-		geom_hline(yintercept=-4, col=setColor('red', 0.2)) +
-		geom_vline(xintercept=codons, col=setColor('red', 0.2)) +
-		scale_x_continuous(limits=c(1,calcLen(seq))) +
-		scale_y_continuous(limits=c(-15,0.1)) + 
-		xlab('Nucleotide Position') +
-		ylab('Energy [kJ/mol]') +
-		theme_classic() + 
-		theme(axis.text=element_text(size=rel(2.0)),
-				axis.title=element_text(size=rel(2.0)),
-				legend.text=element_text(size=rel(2.0)),
-				legend.title=element_text(size=rel(2.0)),
-				legend.position='none',
-				panel.border = element_rect(colour = "black", fill=NA, size=1))
-	return(ret)
+	# Data for energy plot
+	ret2 <- melt.data.table(data=primerSet, id.vars='Primer', measure.vars=c('KeyEndStability','HpDeltaG','DimerDeltaG'))
+	ret2[, value:=suppressWarnings(as.numeric(value))]
+	ret2[value > 0, value:=0]
+	ret2[variable=='KeyEndStability', value:=-1*value]
+	ret2[, Primer:=factor(Primer, levels=finalPrimerNames)]
+	plotEnergies(ret2)
 }
 
 plotEnergies <- function(results)
@@ -956,102 +740,9 @@ plotEnergies <- function(results)
 	return(ret)
 }
 
-plotTm <- function(results)
-{
-	ret <- ggplot(data=results, aes(x=Primer, y=Tm, fill=Primer)) + 
-		geom_col() +
-		scale_fill_manual(values = getPrimerColor(as.character(levels(results$Primer)))) + 
-		geom_hline(yintercept=c(50,60,70)) +
-		scale_y_continuous(limits=c(40,80),oob = rescale_none) +
-		theme(axis.text=element_text(size=rel(2.0)),
-				axis.title=element_text(size=rel(2.0)),
-				legend.text=element_text(size=rel(2.0)),
-				legend.title=element_text(size=rel(2.0)))
-	return(ret)
-}
-
-plotGC <- function(seq, fullGC, dbSeq, dbStart, dbEnd, starts, ends, sensePrimerNames)
-{
-	gc.frac <- fullGC # rollapply(gc, width=20, FUN=mean, partial=T, align='center')
-	start.new <- dbStart
-	seq.new <- s2c(dbSeq)
-	gc.new <- ifelse(seq.new %in% c("g","G","c","C"), 1, 0)
-	gc.frac.new <- rollapply(gc.new, width=20, FUN=mean, partial=T, align='center')
-	bp <- start.new:(start.new + length(seq.new) - 1)
-	bp <- bp[bp > 0 & bp < calcLen(seq)]
-	if(any(seq[bp] %in% c('A','G','T','C')))
-	{
-		codons <- bp[which(seq[bp] %in% c('A','G','T','C'))]
-	}
-	else
-	{
-		codons <- c()
-	}
-	par(mar = c(4, 5, 1, 1), mgp=c(2.7, 1, 0))
-	
-	ret <- ggplot(NULL) +
-		geom_rect(data=data.table(Primer=factor(sensePrimerNames, levels=sensePrimerNames), xmin=starts, xmax=ends), aes(xmin=xmin, xmax=xmax, ymin=-Inf, ymax=Inf, fill=Primer), color='black')	+
-		scale_fill_manual(values = setColor(getPrimerColor(sensePrimerNames), 0.3)) +
-		geom_path(data=data.table(x=seq_along(gc.frac), y=gc.frac), aes(x=x, y=y)) +
-		geom_path(data=data.table(x=start.new:(start.new+(length(gc.frac.new)-1)), y=gc.frac.new), aes(x=x, y=y), linewidth=3) +
-		geom_hline(yintercept=0.6, col=setColor('red', 0.2)) +
-		geom_vline(xintercept=codons, col=setColor('red', 0.2)) +
-		scale_x_continuous(limits=c(1,calcLen(seq))) +
-		scale_y_continuous(limits=c(0,1)) + 
-		xlab('GC Fraction') +
-		ylab('Energy [kJ/mol]') +
-		theme_classic() + 
-		theme(axis.text=element_text(size=rel(2.0)),
-				axis.title=element_text(size=rel(2.0)),
-				legend.text=element_text(size=rel(2.0)),
-				legend.title=element_text(size=rel(2.0)),
-				legend.position='none',
-				panel.border = element_rect(colour = "black", fill=NA, size=1))
-	return(ret)
-}
-
-getPrimerColor <- function(...)
-{
-	args <- list(...)
-	if(length(args) == 1 && length(args[[1]])>1)
-	{
-		return(getAllPrimerColors()[match(as.character(args[[1]]), Primer)]$plotColor)
-	}
-	else
-	{
-		return(getAllPrimerColors()[match(args, Primer)]$plotColor)
-	}
-	
-}
-
-finalPrimerNames <- c('F3','B3','F2','B2','F1c','B1c','FIP','BIP','LF','LB','PNAF','PNAB','DBF','DBB')
-
 getAllPrimerColors <- function()
 {
-	return(data.table(Primer=c('F3',
-										'F3c',
-										'F2',
-										'F2c',
-										'F1',
-										'F1c',
-										'B1',
-										'B1c',
-										'B2',
-										'B2c',
-										'B3',
-										'B3c',
-										'LF',
-										'LFc',
-										'LB',
-										'LBc',
-										'FIP',
-										'BIP',
-										'DBF',
-										'DBB',
-										'PNAF',
-										'PNAFc',
-										'PNAB',
-										'PNABc'),
+	return(data.table(Primer=allPrimerNames,
 							plotColor=c('#99ff99', # F3
 											'#99ff99', # F3
 											'#66ffff', # F2
@@ -1083,6 +774,131 @@ sensePrimerColors <- function()
 {
 	getPrimerColor(sensePrimerNames)
 }
+
+getPossibleWindowsFromBounds <- function(primer, TmDelta=1, bMin, bMax, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
+{
+	ret <- data.table(Primer=primer, InitList[abs(Tm-TmTarget) <= TmDelta & Start>=bMin & End<=bMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
+	ret[, c(idName):=1:.N]
+	return(ret[!is.na(Start)])
+}
+
+getPossibleWindowsOverlappingIndex <- function(primer, TmDelta=1, Index, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
+{d
+	ret <- data.table(Primer=primer, InitList[abs(Tm-TmTarget) <= TmDelta & Start<=Index & End>=Index & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
+	ret[, c(idName):=1:.N]
+	return(ret[!is.na(Start)])
+}
+
+getPossibleWindowsFromStart <- function(primer, TmDelta=1, startMin, startMax, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
+{
+	ret <- data.table(Primer=primer, InitList[abs(Tm-TmTarget) <= TmDelta & Start>=startMin & Start<=startMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
+	ret[, c(idName):=1:.N]
+	return(ret[!is.na(Start)])
+}
+
+getPossibleWindowsFromEnd <- function(primer, TmDelta=1, endMin, endMax, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
+{
+	ret <- data.table(Primer=primer, InitList[abs(Tm-TmTarget) <= TmDelta & End>=endMin & End<=endMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
+	ret[, c(idName):=1:.N]
+	return(ret[!is.na(Start)])
+}
+
+# primerSetIsLegal <- function(primerSet)
+# {
+# 	
+# 	if(any(duplicated(primerSet$Id))){return(FALSE)}
+# 	if(any(duplicated(primerSet$Primer))){return(FALSE)}
+# 	if(nrow(primerSet[Primer=='F3'])==1 && any(primerSet[Primer=='F3', list(End=Start+Len)] > ){return(FALSE)}
+# }
+
+tryPrimersWithPrimerSet <- function(primers, primerSet)
+{
+	primers <- primers[, data.table(rbindlist(list(primerSet[, names(primerSet) != 'primerId', with=F], .SD), use.names=T)), by='primerId']
+	return(primers[])
+}
+
+tryPrimersWithPrimerSets <- function(primers, primerSets)
+{
+	setnames(primerSets, old='primerId', new='primerId_temp')
+	ret <- primerSets[, tryPrimersWithPrimerSet(primers, .SD), by='primerId_temp']
+	ret[, primerId:=.GRP, by=c('primerId','primerId_temp')]
+	ret[, primerId_temp:=NULL]
+	return(ret[])
+}
+
+# makeIdString <- function(primers)
+# {
+# 	paste.cols()
+# }
+
+tryPrimersAdjacentToPrimerSets <- function(primerSets, right=T, relToPrimer, newPrimer, TmDelta=1, minSpace, maxSpace, TmOffset=0, TmTarget=defaultTemps[[newPrimer]], HmdLimit=-7, HpLimit=-4)
+{
+	setnames(primerSets, old='primerId', new='primerId_temp')
+	if(right)
+	{
+		ret <- primerSets[, tryPrimersWithPrimerSet(getPossibleWindowsFromStart(primer=newPrimer,
+																										TmDelta=TmDelta,
+																										startMin=(End[Primer==relToPrimer] + 1) + minSpace,
+																										startMax=(End[Primer==relToPrimer] + 1) + maxSpace,
+																										TmOffset=TmOffset,
+																										TmTarget=TmTarget,
+																										HmdLimit=HmdLimit,
+																										HpLimit = HpLimit),
+																  .SD), by='primerId_temp']
+	}
+	else
+	{
+		ret <- primerSets[, tryPrimersWithPrimerSet(getPossibleWindowsFromEnd(primer=newPrimer,
+																									 TmDelta=TmDelta,
+																									 endMin=(Start[Primer==relToPrimer] - 1) - maxSpace,
+																									 endMax=(Start[Primer==relToPrimer] - 1) - minSpace,
+																									 TmOffset=TmOffset,
+																									 TmTarget=TmTarget,
+																									 HmdLimit=HmdLimit,
+																									 HpLimit=HpLimit),
+																  .SD), by='primerId_temp']
+	}
+	ret[, primerId:=.GRP, by=c('primerId','primerId_temp')]
+	ret[, primerId_temp:=NULL]
+	return(ret[])
+}
+
+assemblePrimers <- function(primerSet, polyNT='a', n=3)
+{
+	F1r <- primerSet[Primer=='F1']
+	F2r <- primerSet[Primer=='F2']
+	B1cr <- primerSet[Primer=='B1c']
+	B2cr <- primerSet[Primer=='B2c']
+	F1 <- s2c(F1r$Seq)
+	F1c <- revC(F1, keepCase=T)
+	F2 <- s2c(F2r$Seq)
+	B1c <- s2c(B1cr$Seq) # rpoB_500_c[primerSet[Primer=='B1c']$Start:primerSet[Primer=='B1c']$End]
+	B2c <- s2c(B2cr$Seq) # rpoB_500_c[primerSet[Primer=='B2c']$Start:primerSet[Primer=='B2c']$End]
+	B2 <- revC(B2c, keepCase=T)
+	FIP <- paste(c(F1c, rep(polyNT, n), F2), collapse='') 
+	BIP <- paste(c(B1c, rep(polyNT, n), B2), collapse='')
+	DBF <- paste(c(rep(polyNT, n), F2, rpoB_500_c[(F2r$End+1):(F1r$Start-1)]), collapse='')
+	DBB <- paste(c(rpoB_500_c[(B1cr$End+1):(B2cr$Start-1)], B2c, revC(c(rep(polyNT, n)), keepCase=T)), collapse='')
+	ret <- data.table(Primer=c('F1c','F2','B1c','B2','FIP','BIP','DBF','DBB'), 
+							Len=c(F1r$Len, F2r$Len, B1cr$Len, B2cr$Len, calcLen(FIP), calcLen(BIP), calcLen(DBF), calcLen(DBB)), 
+							Tm=c(F1r$Tm, F2r$Tm, B1cr$Tm, B2cr$Tm, getTm(FIP), getTm(BIP), NA, NA), 
+							HmdDeltaG=c(F1r$HmdDeltaG, F2r$HmdDeltaG, B1cr$HmdDeltaG, B2cr$HmdDeltaG, getHmd(FIP)$HmdDeltaG, getHmd(BIP)$HmdDeltaG, NA, NA), 
+							Start=c(F1r$Start, F2r$Start, B1cr$Start, B2cr$Start, F2r$End-calcLen(FIP)+1, B2cr$Start, F2r$Start-n, B1cr$End+1), 
+							End=c(F1r$End, F2r$End, B1cr$End, B2cr$End, F2r$End, B2cr$Start+calcLen(BIP)-1, F1r$Start-1, B2cr$End+n), 
+							Seq=c(paste(F1c, collapse=''), paste(F2, collapse=''), paste(B1c, collapse=''), paste(B2, collapse=''), FIP, BIP, DBF, DBB),
+							Id=c(F1r$Id,
+								  F2r$Id,
+								  B1cr$Id,
+								  B2cr$Id,
+								  paste(F1r$Id, '.', F2r$Id, sep=''), 
+								  paste(B1cr$Id, '.', B2cr$Id, sep=''),
+								  paste(F1r$Id, '.', F2r$Id, sep=''), 
+								  paste(B1cr$Id, '.', B2cr$Id, sep=''))
+	)
+	return(ret)
+}
+
+##### Plotting #####
 
 getGCFractionPlot <- function(settings)
 {
@@ -1185,33 +1001,55 @@ getUniqueDimerComboStats <- function(primers, seqs, func=daFunc, mv=50.0, dv=4.4
 
 calcResultsTables <- function(settings)
 {
-	# toInclude <- c(input$F3Check, input$B3Check, T, T, T, T, T, T, input$LFcCheck, input$LBCheck, input$PNACheck, input$PNAcCheck, T, T)
-	req(vals$seq, allLegal(), all(as.logical(vals$NTs != '')))
 	ret <- data.table(Primer=finalPrimerNames,
-							Seq=as.character(sapply(lapply(finalPrimerNames, function(x){vals$NTs[[x]]}), paste, collapse='')),
+							Seq=as.character(sapply(lapply(finalPrimerNames, function(x){settings$NTs[[x]]}), paste, collapse='')),
 							Sense=c('Sense','Antisense','Sense','Antisense','Sense','Antisense','NA','NA','Antisense','Sense','Sense','Antisense','Sense','Sense'))
-	ret[, Stability3p:=getStability(Seq, n=vals$stabilityN, threePrimeEnd=T), by='Primer']
-	ret[, Stability5p:=getStability(Seq, n=vals$stabilityN, threePrimeEnd=F), by='Primer']
-	ret[, Start5p:='NA']
-	ret[Primer == 'F3', Start5p:=vals$Start$F3]
-	ret[Primer == 'B3', Start5p:=getEndSetting('B3c', vals)]
-	ret[Primer == 'F2', Start5p:=vals$Start$F2]
-	ret[Primer == 'F1c', Start5p:=getEndSetting('F1', vals)]
-	ret[Primer == 'B2', Start5p:=getEndSetting('B2c', vals)]
-	ret[Primer == 'B1c', Start5p:=vals$Start$B1c]
-	ret[Primer == 'LF', Start5p:=getEndSetting('LFc', vals)]
-	ret[Primer == 'LB', Start5p:=vals$Start$LB]
-	ret[Primer == 'PNAF', Start5p:=vals$Start$PNAF]
-	ret[Primer == 'PNAB', Start5p:=getEndSetting('PNABc', vals)]
+	ret[, Stability3p:=getStability(Seq, threePrimeEnd=T), by='Primer']
+	ret[, Stability5p:=getStability(Seq, threePrimeEnd=F), by='Primer']
+	ret[, Start:=as.numeric(NA)]
+	ret[, End:=as.numeric(NA)]
+	ret[Primer == 'F3', Start:=settings$Start$F3]
+	ret[Primer == 'F3', End:=getEndSetting('F3', settings)]
+	ret[Primer == 'B3', Start:=settings$Start$B3c]
+	ret[Primer == 'B3', End:=getEndSetting('B3c', settings)]
+	ret[Primer == 'F2', Start:=settings$Start$F2]
+	ret[Primer == 'F2', End:=getEndSetting('F2', settings)]
+	ret[Primer == 'F1c', Start:=settings$Start$F1]
+	ret[Primer == 'F1c', End:=getEndSetting('F1', settings)]
+	ret[Primer == 'B2', Start:=settings$Start$B2c]
+	ret[Primer == 'B2', End:=getEndSetting('B2c', settings)]
+	ret[Primer == 'B1c', Start:=settings$Start$B1c]
+	ret[Primer == 'B1c', End:=getEndSetting('B1c', settings)]
+	ret[Primer == 'LF', Start:=settings$Start$LFc]
+	ret[Primer == 'LF', End:=getEndSetting('LFc', settings)]
+	ret[Primer == 'LB', Start:=settings$Start$LB]
+	ret[Primer == 'LB', End:=getEndSetting('LB', settings)]
+	ret[Primer == 'PNAF', Start:=settings$Start$PNAF]
+	ret[Primer == 'PNAF', End:=getEndSetting('PNAF', settings)]
+	ret[Primer == 'PNAB', Start:=settings$Start$PNABc]
+	ret[Primer == 'PNAB', End:=getEndSetting('PNABc', settings)]
+	ret[Primer == 'FIP', Start:=getEndSetting('F2', settings) - calcLen(settings$Seq$FIP) + 1] # F2r$End-calcLen(FIP)+1
+	ret[Primer == 'FIP', End:=getEndSetting('F2', settings)] # F2r$End
+	ret[Primer == 'BIP', Start:=settings$Start$B2c] # B2cr$Start
+	ret[Primer == 'BIP', End:=settings$Start$B2c + calcLen(settings$Seq$BIP) - 1] # B2cr$Start+calcLen(BIP)-1
+	ret[Primer == 'DBF', Start:=settings$Start$F2 - settings$polyT] # F2r$Start-n
+	ret[Primer == 'DBF', End:=settings$Start$F1 - 1] # F1r$Start-1
+	ret[Primer == 'DBB', Start:=getEndSetting('B1c', settings) + 1] # B1cr$End+1
+	ret[Primer == 'DBB', End:=getEndSetting('B2c', settings) + settings$polyT] # B2cr$End+n
+	ret[, Start:=as.integer(Start)]
+	ret[, End:=as.integer(End)]
+	
 	ret[, Len:=length(s2c(Seq)), by='Primer']
-	ret[, c('Tm','HpTm','HpDeltaG','HpStruct'):=getPrimerStats(Seq), by='Primer']
-	checked <- gsub('c','',names(vals$Check)[as.logical(vals$Check)])
+	
+	ret[, Tm:=getTm(Seq), by='Primer']
+	ret[Primer %!in% c('DBB','DBF'), c('HpTm','HpDeltaG','HpStruct'):=getHp(Seq), by=c('Primer')]
+	ret[, c('HpTm','HpDeltaG','HpStruct'):=getDBHps(.SD, width=25)]
+	
+	checked <- gsub('c','',names(settings$Check)[as.logical(settings$Check)])
 	checked <- checked[checked %!in% c('F1','F2','B1','B2')]
 	primerBaseNames <- gsub('c','',ret$Primer)
 	primersToCalc <- primerBaseNames %in% c(checked, 'FIP', 'BIP')
-	# browser()
 	ret[primersToCalc, c('P2','DimerTm','DimerDeltaG','DimerStruct'):=getDimerComboStats(Primer, Seq)]
-	# ret[Primer %in% c('FIP','BIP'), Tm:='NA']
 	ret[, KeyEndStability:=ifelse(Primer %in% c('F1c','B1c'), Stability5p, Stability3p)]
 	
 	# Data for energy plot
@@ -1219,7 +1057,7 @@ calcResultsTables <- function(settings)
 	ret2[, value:=suppressWarnings(as.numeric(value))]
 	ret2[value > 0, value:=0]
 	ret2[variable=='KeyEndStability', value:=-1*value]
-	ret2[, Primer:=factor(ret2$Primer, levels=finalPrimerNames)]
+	ret2[, Primer:=factor(Primer, levels=finalPrimerNames)]
 	
 	# Data for Tm plot
 	ret3 <- ret[, c('Primer','Tm')]
@@ -1228,10 +1066,8 @@ calcResultsTables <- function(settings)
 	setkey(ret3, Primer)
 	setkey(primerColors, Primer)
 	ret3 <- primerColors[ret3]
-	ret3[, Primer:=factor(ret3$Primer, levels=finalPrimerNames)]
-	vals$results2 <- ret2
-	vals$results3 <- ret3
-	vals$results <- ret
+	ret3[, Primer:=factor(Primer, levels=finalPrimerNames)]
+	return(list(results=ret, results2=ret2, results3=ret3))
 }
 
 ##### Settings Functions #####
