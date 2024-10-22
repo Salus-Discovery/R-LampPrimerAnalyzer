@@ -30,6 +30,7 @@ library(seqinr)
 library(primer3)
 library(pwalign)
 library(ggplot2)
+library(scales)
 
 ##### Constants #####
 sensePrimerNames <- c('F3','F2','F1','LFc','B1c','B2c','B3c','LB','PNAF','PNABc')
