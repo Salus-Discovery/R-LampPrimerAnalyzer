@@ -479,6 +479,14 @@ getHpTable <- function(seq_c, width=25, align='left', trim=F)
 	return(ret[])
 }
 
+getHpCamelCase <- function(seq, brackets)
+{
+	ret <- toLower(s2c(seq))
+	bonds <- s2c(brackets) %in% c('(',')')
+	ret[bonds] <- toUpper(s2c(seq))[bonds]
+	return(paste(ret, collapse=''))
+}
+
 getDBHps <- function(primerSet, width=25)
 {
 	if(is.even(width))
@@ -494,10 +502,9 @@ getDBHps <- function(primerSet, width=25)
 	BIPr <- primerSet[Primer=='BIP']
 	DBFr <- primerSet[Primer=='DBF']
 	DBBr <- primerSet[Primer=='DBB']
-	
 	DBFSeqLin <- c(s2c(F1cr$Seq)[(F1cr$Len+1-width%/%2):F1cr$Len], s2c(DBFr$Seq), revC(s2c(F1cr$Seq), keepCase=T)[1:(width%/%2)]) # Linear version DB padded by F1/F1c
 	DBFSeqCirc <- c(s2c(DBFr$Seq)[(DBFr$Len+1-width%/%2):DBFr$Len], s2c(DBFr$Seq), s2c(DBFr$Seq)[1:(width%/%2)]) # Circular version DB padded by DB loop
-	DBFSeqLinHp <- getHpTable(DBFSeqLin, width=width, align='center', trim=F)
+	DBFSeqLinHp <- getHpTable(DBFSeqLin, width=width, align='center', trim=T)
 	DBFSeqLinHp[, bp:=bp-min(bp)+1]
 	DBFSeqCircHp <- getHpTable(DBFSeqCirc, width=width, align='center', trim=T)
 	DBFSeqCircHp[, bp:=bp-min(bp)+1]
@@ -505,7 +512,7 @@ getDBHps <- function(primerSet, width=25)
 	DBFSeqCircHp[, HpType:='Circ']
 	DBFTable <- rbindlist(list(DBFSeqCircHp, DBFSeqLinHp))
 	DBFI <- which.min(DBFTable$HpDeltaG)
-	DBFTable[HpStruct != '', HpStruct:=paste(HpType, ':', bp-width%/%2, '-', bp+width%/%2, ':', HpStruct, sep='')]
+	DBFTable[HpStruct != '', HpStruct:=paste(HpType, ':', bp-width%/%2, '-', bp+width%/%2, ':', HpStruct, '\n', getHpCamelCase(Seq, HpStruct), sep=''), by=c('bp','HpType')]
 	ret <- copy(primerSet)
 	if(length(DBFI) >= 1)
 	{
@@ -776,30 +783,30 @@ sensePrimerColors <- function()
 	getPrimerColor(sensePrimerNames)
 }
 
-getPossibleWindowsFromBounds <- function(primer, TmDelta=1, bMin, bMax, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
+getPossibleWindowsFromBounds <- function(primer, primerList, TmDelta=1, bMin, bMax, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
 {
-	ret <- data.table(Primer=primer, InitList[abs(Tm-TmTarget) <= TmDelta & Start>=bMin & End<=bMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
+	ret <- data.table(Primer=primer, primerList[abs(Tm-TmTarget) <= TmDelta & Start>=bMin & End<=bMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
 	ret[, c(idName):=1:.N]
 	return(ret[!is.na(Start)])
 }
 
-getPossibleWindowsOverlappingIndex <- function(primer, TmDelta=1, Index, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
+getPossibleWindowsOverlappingIndex <- function(primer, primerList, TmDelta=1, Index, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
 {d
-	ret <- data.table(Primer=primer, InitList[abs(Tm-TmTarget) <= TmDelta & Start<=Index & End>=Index & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
+	ret <- data.table(Primer=primer, primerList[abs(Tm-TmTarget) <= TmDelta & Start<=Index & End>=Index & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
 	ret[, c(idName):=1:.N]
 	return(ret[!is.na(Start)])
 }
 
-getPossibleWindowsFromStart <- function(primer, TmDelta=1, startMin, startMax, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
+getPossibleWindowsFromStart <- function(primer, primerList, TmDelta=1, startMin, startMax, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
 {
-	ret <- data.table(Primer=primer, InitList[abs(Tm-TmTarget) <= TmDelta & Start>=startMin & Start<=startMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
+	ret <- data.table(Primer=primer, primerList[abs(Tm-TmTarget) <= TmDelta & Start>=startMin & Start<=startMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
 	ret[, c(idName):=1:.N]
 	return(ret[!is.na(Start)])
 }
 
-getPossibleWindowsFromEnd <- function(primer, TmDelta=1, endMin, endMax, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
+getPossibleWindowsFromEnd <- function(primer, primerList, TmDelta=1, endMin, endMax, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
 {
-	ret <- data.table(Primer=primer, InitList[abs(Tm-TmTarget) <= TmDelta & End>=endMin & End<=endMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
+	ret <- data.table(Primer=primer, primerList[abs(Tm-TmTarget) <= TmDelta & End>=endMin & End<=endMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
 	ret[, c(idName):=1:.N]
 	return(ret[!is.na(Start)])
 }
@@ -820,6 +827,7 @@ tryPrimersWithPrimerSet <- function(primers, primerSet)
 
 tryPrimersWithPrimerSets <- function(primers, primerSets)
 {
+	primerSets <- primerSets[Primer %!in% unique(primers$Primer)]
 	setnames(primerSets, old='primerId', new='primerId_temp')
 	ret <- primerSets[, tryPrimersWithPrimerSet(primers, .SD), by='primerId_temp']
 	ret[, primerId:=.GRP, by=c('primerId','primerId_temp')]
@@ -832,12 +840,13 @@ tryPrimersWithPrimerSets <- function(primers, primerSets)
 # 	paste.cols()
 # }
 
-tryPrimersAdjacentToPrimerSets <- function(primerSets, right=T, relToPrimer, newPrimer, TmDelta=1, minSpace, maxSpace, TmOffset=0, TmTarget=defaultTemps[[newPrimer]], HmdLimit=-7, HpLimit=-4)
+tryPrimersAdjacentToPrimerSets <- function(primerSets, primerList, right=T, relToPrimer, newPrimer, TmDelta=1, minSpace, maxSpace, TmOffset=0, TmTarget=defaultTemps[[newPrimer]], HmdLimit=-7, HpLimit=-4)
 {
 	setnames(primerSets, old='primerId', new='primerId_temp')
 	if(right)
 	{
 		ret <- primerSets[, tryPrimersWithPrimerSet(getPossibleWindowsFromStart(primer=newPrimer,
+																										primerList=primerList, 
 																										TmDelta=TmDelta,
 																										startMin=(End[Primer==relToPrimer] + 1) + minSpace,
 																										startMax=(End[Primer==relToPrimer] + 1) + maxSpace,
@@ -850,6 +859,7 @@ tryPrimersAdjacentToPrimerSets <- function(primerSets, right=T, relToPrimer, new
 	else
 	{
 		ret <- primerSets[, tryPrimersWithPrimerSet(getPossibleWindowsFromEnd(primer=newPrimer,
+																									 primerList=primerList, 
 																									 TmDelta=TmDelta,
 																									 endMin=(Start[Primer==relToPrimer] - 1) - maxSpace,
 																									 endMax=(Start[Primer==relToPrimer] - 1) - minSpace,
@@ -1033,10 +1043,10 @@ calcResultsTables <- function(settings)
 	ret[Primer == 'FIP', End:=getEndSetting('F2', settings)] # F2r$End
 	ret[Primer == 'BIP', Start:=settings$Start$B2c] # B2cr$Start
 	ret[Primer == 'BIP', End:=settings$Start$B2c + calcLen(settings$Seq$BIP) - 1] # B2cr$Start+calcLen(BIP)-1
-	ret[Primer == 'DBF', Start:=settings$Start$F2 - settings$polyT] # F2r$Start-n
-	ret[Primer == 'DBF', End:=settings$Start$F1 - 1] # F1r$Start-1
+	ret[Primer == 'DBF', Start:=settings$Start$F2 - calcLen(settings$FIPlinker)] # F2r$Start-n
+	ret[Primer == 'DBF', End:=Start+calcLen(Seq) - 1] # F1r$Start-1
 	ret[Primer == 'DBB', Start:=getEndSetting('B1c', settings) + 1] # B1cr$End+1
-	ret[Primer == 'DBB', End:=getEndSetting('B2c', settings) + settings$polyT] # B2cr$End+n
+	ret[Primer == 'DBB', End:=Start + calcLen(Seq) - 1] # B2cr$End+n
 	ret[, Start:=as.integer(Start)]
 	ret[, End:=as.integer(End)]
 	
@@ -1133,443 +1143,443 @@ stops <- function(settings)
 	as.numeric(sapply(sensePrimerNames, function(x){settings$Start[[x]]}))+as.numeric(lapply(sensePrimerNames, function(x){settings$Len[[x]]}))-1
 }
 
-##### Events #####
-# Define server logic required to draw a histogram
-server <- function(input, output, session) {
-	
-	observeEvent( list(vals$seq, vals$render > 0),{
-		req(vals$seq)
-		if(calcLen(vals$seq)==0){vals$render <- vals$render + 1}
-		print("Rendering primer controls.")
-		output$F3 <- renderUI(isolate(renderPrimerControl(vals$seq, 'F3', initLocs=initLocs(), Loc=2)))
-		output$F2 <- renderUI(isolate(renderPrimerControl(vals$seq, 'F2', initLocs=initLocs(), Loc=3)))
-		output$LFc <- renderUI(isolate(renderPrimerControl(vals$seq, 'LFc', initLocs=initLocs(), Loc=0)))
-		output$F1 <- renderUI(isolate(renderPrimerControl(vals$seq, 'F1', initLocs=initLocs(), Loc=4)))
-		output$B1c <- renderUI(isolate(renderPrimerControl(vals$seq, 'B1c', initLocs=initLocs(), Loc=5)))
-		output$LB <- renderUI(isolate(renderPrimerControl(vals$seq, 'LB', initLocs=initLocs(), Loc=0)))
-		output$B2c <- renderUI(isolate(renderPrimerControl(vals$seq, 'B2c', initLocs=initLocs(), Loc=6)))
-		output$B3c <- renderUI(isolate(renderPrimerControl(vals$seq, 'B3c', initLocs=initLocs(), Loc=7)))
-		output$PNAF <- renderUI(isolate(renderPrimerControl(vals$seq, 'PNAF', initLocs=initLocs(), Loc=0)))
-		output$PNABc <- renderUI(isolate(renderPrimerControl(vals$seq, 'PNABc', initLocs=initLocs(), Loc=0)))
-		# print(vals$render)
-		if(all(sapply(sensePrimerNames, function(x){calcLen(input[[paste(x, 'NTs', sep='')]]) > 0}))){
-			vals$render <- 0
-			silenceLenUpdate <<- 0
-			silenceStartUpdate <<- 0
-			silenceNTUpdate <<- 0
-		}
-	})
-	
-	observeEvent(list(input$Seq, vals$render > 0), {
-		updateValsItem('seq', {
-			temp <- s2c(input$Seq)
-			temp[temp %in% c('a','g','t','c','A','G','T','C')]
-			if(input$Seq != paste(temp, collapse=''))
-			{
-				warning('Non A, G, T, C, a, g, t, c, characters found. Repairing sequence')
-				if(vals$seq != temp)
-				{
-					vals$seq <- temp
-				}
-				if(input$Seq == '')
-				{
-					updateTextAreaInput(session, inputId='Seq', value=paste(temp, collapse=''))
-				}
-			}
-			# print(temp)
-			temp
-		}, vals)
-	})
-	
-	observeEvent(getInputs(sensePrimerNames, 'Check', input), {
-		do.call('req', lapply(getInputs(sensePrimerNames, 'Check', input), function(x){length(x)>0}))
-		lapply(sensePrimerNames, updateValsGroupItem, group='Check', input=input, vals)
-	})
-	
-	observeEvent(getInputs(sensePrimerNames, 'Start', input), {
-		do.call('req', getInputs(sensePrimerNames, 'Start', input))
-		lapply(sensePrimerNames, updateValsGroupItem, group='Start', input=input, vals)
-	})
-	
-	observeEvent(getInputs(sensePrimerNames, 'Len', input), {
-		do.call('req', getInputs(sensePrimerNames, 'Len', input))
-		lapply(sensePrimerNames, updateValsGroupItem, group='Len', input=input, vals)
-	})
-	
-	observeEvent(input$linker, {
-		req(input$linker)
-		updateValsItem('linker', input$linker, vals)
-	})
-	
-	# Watch all the inputs and create a ground truth stored version of everything
-	observeEvent(list(vals$seq, vals$polyT, vals$linker, getInputs(sensePrimerNames, 'NTs', input)), {
-		tempPNABc <- input$PNABc
-		do.call('req', getInputs(sensePrimerNames, 'NTs', input))
-		req(vals$seq, vals$polyT)
-		lapply(sensePrimerNames, updateValsGroupItem, group='NTs', input=input, vals=vals)
-		updateValsItem('F1c', revC(vals$NTs$F1, keepCase=T), vals, group='NTs')
-		updateValsItem('B2', revC(vals$NTs$B2c, keepCase=T), vals, group='NTs')
-		updateValsItem('B3', revC(vals$NTs$B3c, keepCase=T), vals, group='NTs')
-		updateValsItem('LF', revC(vals$NTs$LFc, keepCase=T), vals, group='NTs')
-		updateValsItem('LB', vals$NTs$LB, vals, group='NTs')
-		updateValsItem('FIP', {
-			paste(c(vals$NTs$F1c, rep(vals$linker, vals$polyT), vals$NTs$F2), collapse='')	
-		}, vals, group='NTs')
-		updateValsItem('BIP', {
-			paste(c(vals$NTs$B1c, rep(vals$linker, vals$polyT), vals$NTs$B2), collapse='')	
-		}, vals, group='NTs')
-		updateValsItem('DBF', paste(c(rep(vals$linker, vals$polyT), s2c(vals$NTs$F2), vals$seq[(getEndSetting('F2', vals)+1):(vals$Start$F1-1)]), collapse=''), vals, group='NTs')
-		updateValsItem('DBB', paste(c(vals$seq[(getEndSetting('B1c', vals)+1):(vals$Start$B2c-1)], s2c(vals$NTs$B2c), revC(rep(vals$linker, vals$polyT), keepCase=T)), collapse=''), vals, group='NTs')
-		updateValsItem('PNAF', {
-			# If the PNA straddles the start of F2
-			ifelse(vals$Start$PNAF < vals$Start$F2 && getEndSetting('PNAF', vals) >= vals$Start$F2, 
-					 paste(
-					 	{
-					 		# Paste together the upstream portion of FIP with the downstream portion of the PNAF
-					 		FIPN <- length(vals$NTs$FIP)
-					 		F2N <- vals$Len$F2
-					 		Offset <- vals$Start$F2-vals$Start$PNAF
-					 		if(getEndSetting('PNAF', vals) > getEndSetting('F2', vals))
-					 		{
-					 			warning('Having a PNAF longer than F2 is not supported yet.')
-					 			updateTextInput(session, 'PNAFNTs', vals$NTs$PNAF)
-					 			s2c(vals$NTs$PNAF) # Don't change anything
-					 		}
-					 		else
-					 		{
-					 			c(vals$NTs$FIP[(FIPN-F2N-Offset):(FIPN-F2N)], # Chunk from start of PNAF up to start of F2 in FIP
-					 			  vals$NTsPNAF[(Offset+1):vals$Len$PNAF]) # Remaining part of PNAF
-					 		}
-					 	}, 
-					 	collapse=''),
-					 vals$NTs$PNAF
-			)
-		}, vals, group='NTs')
-		updateValsItem('PNAB', {
-			# If the PNA straddles the end of B2c
-			ifelse(vals$Start$PNABc < getEndSetting('B2c', vals) && getEndSetting('PNABc', vals) >= getEndSetting('B2c', vals), 
-					 paste(
-					 	{
-					 		# Paste together the upstream portion of FIP with the downstream portion of the PNAF
-					 		BIPN <- length(vals$NTs$BIP)
-					 		B2cN <- vals$Len$B2c
-					 		Offset <- getEndSetting('PNABc', vals)-getEndSetting('B2c', vals)
-					 		if(vals$Start$PNABc < vals$Start$B2c)
-					 		{
-					 			stop('Having a PNAB longer than B2 is not supported yet.')
-					 			# Reset the source PNABc value to what it was before this observed event
-					 			vals$NTs$PNABc <- tempPNABc
-					 			# Reset the input to the same value
-					 			updateTextInput(session, 'PNABcNTs', tempPNABc)
-					 			s2c(vals$NTs$PNAB) # Don't change anything by returning the same value
-					 		}
-					 		else
-					 		{
-					 			c(vals$NTs$BIP[(BIPN-B2cN-Offset):(BIPN-B2cN)], # Chunk from end of PNABc up to end of B2c in BIP
-					 			  revC(vals$NTs$PNABc, keepCase=T)[1:(vals$Len$PNABc-Offset)], keepCase=T) # Remaining (i.e., beginning) part of revC(PNABc)
-					 		}
-					 	}, 
-					 	collapse=''),
-					 revC(vals$NTs$PNABc, keepCase=T))
-		}, vals, group='NTs')
-		updateValsItem('DBAll', {
-			paste(c(vals$NTs$F1c, rep(vals$linker, input$polyT), vals$seq[vals$Start$F2:getEndSetting('B2c', vals)], rep(vals$linker, input$polyT), revC(vals$NTs$B1c, keepCase=T)), collapse='')
-		}, vals)
-		updateValsItem('DBStart', vals$Start$F2-vals$polyT-vals$Len$F1, vals)
-		updateValsItem('DBEnd', (vals$Start$B2c + vals$Len$B2c - 1)+vals$polyT+vals$Len$B1c, vals)
-	})
-	
-	observeEvent(getInputs(sensePrimerNames, 'Check', input), {
-		do.call('req', getInputs(sensePrimerNames, 'Check', input))
-		lapply(sensePrimerNames, updateValsGroupItem, group='Check', input=input, vals)
-	})
-	
-	observeEvent(input$polyT, {
-		updateValsItem('polyT', input$polyT, vals)
-	})
-	
-	observeEvent(list(vals$Check, vals$NTs), {
-		# Highlight output
-		# print(paste("Marking ", controlId, ": ", input[[paste0(controlId, "NTs")]]))
-		
-		req(!is.null(vals$seq), !is.null(vals$Check), length(vals$Check) > 0)
-		my_marker <- marker$new("#text-to-mark")
-		my_marker$unmark()
-		if(input$F3Check){ my_marker$mark(input[[paste0("F3", "NTs")]], element=paste0("markF3")) }
-		if(input$F2Check){ my_marker$mark(input[[paste0("F2", "NTs")]], element=paste0("markF2")) }
-		if(input$LFcCheck){ my_marker$mark(input[[paste0("LFc", "NTs")]], element=paste0("markLFc")) }
-		if(input$F1Check){ my_marker$mark(input[[paste0("F1", "NTs")]], element=paste0("markF1")) }
-		if(input$B1cCheck){ my_marker$mark(input[[paste0("B1c", "NTs")]], element=paste0("markB1c")) }
-		if(input$LBCheck){ my_marker$mark(input[[paste0("LB", "NTs")]], element=paste0("markLB")) }
-		if(input$B2cCheck){ my_marker$mark(input[[paste0("B2c", "NTs")]], element=paste0("markB2c")) }
-		if(input$B3cCheck){ my_marker$mark(input[[paste0("B3c", "NTs")]], element=paste0("markB3c")) }
-		if(input$PNAFCheck){ my_marker$mark(input[[paste0("PNAF", "NTs")]], element=paste0("markPNAF")) }
-		if(input$PNABcCheck){ my_marker$mark(input[[paste0("PNABc", "NTs")]], element=paste0("markPNABc")) }
-	}, ignoreInit = F)
-	
-	observeEvent(input$stabilityN, {
-		updateValsItem('stabilityN', input$stabilityN, vals)	
-	})
-	
-	# Now feed the ground truth out to inputs as necessary (if value in values in vals already matches, no additional triggers will setoff)
-	# Feed NT values if Start input values change
-	observeEvent(vals$Start, {
-		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$Start[[x]])})))
-		if(silenceStartUpdate == 0)
-		{
-			silenceNTUpdate <<- silenceNTUpdate + 1
-			ntUpdated <- FALSE
-			for(controlId in sensePrimerNames)
-			{
-				bpStart <- vals$Start[[controlId]]
-				bpEnd <- (vals$Start[[controlId]]+vals$Len[[controlId]]-1)
-				if(length(bpStart) != 1)
-				{
-					browser()
-				}
-				bp <- seq(from=bpStart, to=bpEnd)
-				temp <- paste(vals$seq[bp], collapse='')
-				if(vals$NTs[[controlId]] != temp) # && silenceNTUpdate == 0)
-				{
-					# print(vals$render)
-					ntUpdated <- TRUE
-					print(paste("Updating NTs from Start:", silenceNTUpdate))
-					updateTextInput(session, paste0(controlId, 'NTs'), value=temp)
-				}
-			}
-			if(!ntUpdated){silenceNTUpdate <<- silenceNTUpdate - 1}
-		}
-		else if(silenceStartUpdate > 0)
-		{
-			silenceStartUpdate <<- silenceStartUpdate - 1
-			print(paste("Silencing Start Update:", silenceStartUpdate))
-		}
-	})
-	
-	# Feed NT values if Len input values change
-	observeEvent(vals$Len, {
-		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$Len[[x]])})))
-		if(silenceLenUpdate == 0)
-		{
-			silenceNTUpdate <<- silenceNTUpdate + 1
-			ntUpdated <- FALSE
-			for(controlId in sensePrimerNames)
-			{
-				bpStart <- vals$Start[[controlId]]
-				bpEnd <- (vals$Start[[controlId]]+vals$Len[[controlId]]-1)
-				if(length(bpStart) != 1)
-				{
-					browser()
-				}
-				bp <- seq(from=bpStart, to=bpEnd)
-				temp <- paste(vals$seq[bp], collapse='')
-				if(vals$NTs[[controlId]] != temp) # && silenceNTUpdate == 0)
-				{
-					ntUpdated <- TRUE
-					print(paste("Updating NTs from Len:", silenceNTUpdate))
-					updateTextInput(session, paste0(controlId, 'NTs'), value=temp)
-				}
-			}
-			if(!ntUpdated){silenceNTUpdate <<- silenceNTUpdate - 1}
-		}
-		else if(silenceLenUpdate > 0)
-		{
-			silenceLenUpdate <<- silenceLenUpdate - 1
-			print(paste("Silencing Len Update:", silenceLenUpdate))
-		}
-	})
-	
-	# Feed Start and Len input values if NT values change
-	observeEvent(vals$NTs, {
-		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$NTs[[x]])})))
-		if(silenceNTUpdate > 0)
-		{
-			silenceNTUpdate <<- silenceNTUpdate - 1
-			print(paste("Silencing NT Update:", silenceNTUpdate))
-		}
-		else
-		{
-			silenceStartUpdate <<- silenceStartUpdate + 1
-			silenceLenUpdate <<- silenceLenUpdate + 1
-			startUpdated <- FALSE
-			lenUpdated <- FALSE
-			for(controlId in sensePrimerNames)
-			{
-				temp <- vals$NTs[[controlId]]
-				start <- getStartFromSeq(temp, paste(vals$seq, collapse=''))
-				len <- calcLen(temp)
-				if(vals$Start[[controlId]] != start) # && silenceStartUpdate == 0)
-				{
-					startUpdated <- TRUE
-					print(paste("Update Start UI from NTs change:", silenceStartUpdate))
-					updateNumericInput(session, paste0(controlId, 'Start'), value=start)
-				}
-				if(vals$Len[[controlId]] != len) # && silenceLenUpdate == 0)
-				{
-					lenUpdated <- TRUE
-					print(paste("Update Len UI from NTs change", silenceLenUpdate))
-					updateNumericInput(session, paste0(controlId, 'Len'), value=len)
-				}
-			}
-			if(!startUpdated){
-				# browser()
-				silenceStartUpdate <<- silenceStartUpdate - 1
-			}
-			if(!lenUpdated){
-				# browser()
-				silenceLenUpdate <<- silenceLenUpdate - 1
-			}
-		}
-	})
-	
-	
-	
-	
-	
-	observeEvent(list(vals$seq, vals$NTs), {
-		
-		output$GCPlot <- renderPlot({
-			GCPlot()
-		})
-		
-		output$HairpinPlot <- renderPlot({
-			HairpinPlot()
-		})
-		
-		output$EnergyPlot <- renderPlot({
-			EnergiesPlot()
-		})
-		
-		output$TmPlot <- renderPlot({
-			TmPlot()
-		})
-	})
-	
-	observeEvent(input$revCTool,{
-		req(input$revCTool != '')
-		output$revCOutput <- renderText({
-			revc <- revC(input$revCTool, keepCase=T)
-			session$sendCustomMessage("txt", revc)
-			paste('COPIED:', revc)
-		})
-	})
-	
-	output$ResultsTable <- renderTable({
-		req(vals$results)
-		vals$results
-	})
-	
-	observeEvent(input$importButton, {
-		x <- read.clipboard(os=Sys.info()['sysname'], header=F)
-		x <- x[x[[1]] %in% c('F1','F1c','F2','F2c','F3','F3c','B1','B1c','B2','B2c','B3','B3c','PNAF','PNAFc','PNAB','PNABc','LF','LFc','LB','LBc')]
-		if(nrow(x) == 0)
-		{
-			txt <- "First column should contain the name of the primer type (e.g., F3 etc). Re-copy primer information."
-			warning(txt)
-			output$revCOutput <- renderText(txt)
-		}
-		else if(ncol(x) != 3)
-		{
-			txt <- "Please copy just the primer name column and the start and end position columns (3 columns total). Re-copy primer information."
-			warning(txt)
-			output$revCOutput <- renderText(txt)
-		}
-		else
-		{
-			primerColName <- names(x)[1]
-			startColName <- names(x)[2]
-			endColName <- names(x)[3]
-			x[, isRC:=grepl('[c]', get(primerColName))]
-			x[, isSense:=get(primerColName) %in% c('F1','F1c','F2','F2c','F3','F3c','PNAF','PNAFc','LB','LBc')]
-			# x[, seq:=paste(vars$seq[get(startColName):get(endColName)], collapse=''), by=c(primerColName)]
-			# x[isRC & isSense, seq:=revC(seq, keepCase=T), by=c(primerColName)]
-			x[isRC & isSense, c(primerColName):=gsub('[c]', '', get(primerColName))]
-			# x[!isRC & !isSense, seq:=revC(seq, keepCase=T), by=c(primerColName)]
-			x[!isRC & !isSense, c(primerColName):=paste(get(primerColName), 'c', sep='')]
-			# browser()
-			x[get(primerColName) %in% c('F1','F2','F3','B1c','B2c','B3c','PNAF','PNABc','LFc','LB')]
-			for(i in 1:nrow(x))
-			{
-				startVal <- x[i][[startColName]]
-				lenVal <- x[i][[endColName]]-x[i][[startColName]]+1
-				NTVal <- paste(vals$seq[seq(startVal, startVal + lenVal -1)], collapse='')
-				if(vals$Start[[x[i][[primerColName]]]] != startVal) #updateValsItem(x[i][[primerColName]], startVal, vals, group='Start'))
-				{
-					# Only mark down 1 update for an import event instead one for each change made.
-					if(silenceStartUpdate == 0){silenceStartUpdate <<- silenceStartUpdate + 1}
-					updateNumericInput(session, paste(x[i][[primerColName]], 'Start', sep=''), value=startVal)
-				}
-				if(vals$Len[[x[i][[primerColName]]]] != lenVal) # updateValsItem(x[i][[primerColName]], lenVal, vals, group='Len'))
-				{
-					# Only mark down 1 update for an import event instead one for each change made.
-					if(silenceLenUpdate == 0){silenceLenUpdate <<- silenceLenUpdate + 1}
-					updateNumericInput(session, paste(x[i][[primerColName]], 'Len', sep=''), value=lenVal)
-				}
-				if(vals$NTs[[x[i][[primerColName]]]] != NTVal) # updateValsItem(x[i][[primerColName]], NTVal, vals, group='NTs'))
-				{
-					# Only mark down 1 update for an import event instead one for each change made.
-					if(silenceNTUpdate == 0){silenceNTUpdate <<- silenceNTUpdate + 1}
-					updateTextInput(session, paste(x[i][[primerColName]], 'NTs', sep=''), value=NTVal)
-				}
-			}
-			output$revCOutput <- renderText("Clipboard imported.")
-		}
-	})
-	
-	observeEvent(input$importSettings, {
-		# browser()
-		load(input$importSettings$datapath)
-		for(item in names(settings))
-		{
-			print(paste("Importing:", item))
-			vals[[item]] <- settings[[item]]
-		}
-		updateTextAreaInput(session, 'Seq', value=paste(vals$seq, collapse=''))
-		for(name in sensePrimerNames)
-		{
-			updateNumericInput(session, inputId=paste(name, 'Start', sep=''), value=vals$Start[[name]])
-			updateNumericInput(session, inputId=paste(name, 'Len', sep=''), value=vals$Len[[name]])
-		}
-	})
-	
-	output$download <- downloadHandler(
-		# filename = function(){paste(input$downloadName, '.csv')},
-		# content = function(fname){
-		# 	fwrite(vals$results, fname)
-		# }
-		
-		filename = function(){paste(input$downloadName, '.zip')},
-		content = function(fname){
-			
-			# Set temporary working directory
-			owd <- setwd( tempdir())
-			print(getwd())
-			on.exit( setwd( owd))
-			
-			temp <- list(GCPlot=GCPlot(), HairpinPlot=HairpinPlot(), EnergiesPlot=EnergiesPlot(), TmPlot=TmPlot())
-			temp <- temp[sapply(temp, isTruthy)]
-			lapply(names(temp), function(x){
-				ggsave(paste(x, '.png', sep=''), plot = temp[[x]], device = "png", width = 18, height = 6, dpi = 150, units = "in")
-			})
-			
-			# print(vals$results)
-			fwrite(vals$results, 'SummaryTable.csv')
-			
-			# Save the inputs so they can be reloaded later if desired.
-			settings <- list()
-			for(item in names(vals))
-			{
-				settings[[item]] <- vals[[item]]
-			}
-			save(settings, file='Settings.RData')
-			
-			# Zip them up
-			# print(fname)
-			return(zip( zipfile=fname, files=c('Settings.RData', 'SummaryTable.csv', paste(names(temp), '.png', sep=''))))
-		},
-		contentType = "application/zip"
-	)
-}
+# ##### Events #####
+# # Define server logic required to draw a histogram
+# server <- function(input, output, session) {
+# 	
+# 	observeEvent( list(vals$seq, vals$render > 0),{
+# 		req(vals$seq)
+# 		if(calcLen(vals$seq)==0){vals$render <- vals$render + 1}
+# 		print("Rendering primer controls.")
+# 		output$F3 <- renderUI(isolate(renderPrimerControl(vals$seq, 'F3', initLocs=initLocs(), Loc=2)))
+# 		output$F2 <- renderUI(isolate(renderPrimerControl(vals$seq, 'F2', initLocs=initLocs(), Loc=3)))
+# 		output$LFc <- renderUI(isolate(renderPrimerControl(vals$seq, 'LFc', initLocs=initLocs(), Loc=0)))
+# 		output$F1 <- renderUI(isolate(renderPrimerControl(vals$seq, 'F1', initLocs=initLocs(), Loc=4)))
+# 		output$B1c <- renderUI(isolate(renderPrimerControl(vals$seq, 'B1c', initLocs=initLocs(), Loc=5)))
+# 		output$LB <- renderUI(isolate(renderPrimerControl(vals$seq, 'LB', initLocs=initLocs(), Loc=0)))
+# 		output$B2c <- renderUI(isolate(renderPrimerControl(vals$seq, 'B2c', initLocs=initLocs(), Loc=6)))
+# 		output$B3c <- renderUI(isolate(renderPrimerControl(vals$seq, 'B3c', initLocs=initLocs(), Loc=7)))
+# 		output$PNAF <- renderUI(isolate(renderPrimerControl(vals$seq, 'PNAF', initLocs=initLocs(), Loc=0)))
+# 		output$PNABc <- renderUI(isolate(renderPrimerControl(vals$seq, 'PNABc', initLocs=initLocs(), Loc=0)))
+# 		# print(vals$render)
+# 		if(all(sapply(sensePrimerNames, function(x){calcLen(input[[paste(x, 'NTs', sep='')]]) > 0}))){
+# 			vals$render <- 0
+# 			silenceLenUpdate <<- 0
+# 			silenceStartUpdate <<- 0
+# 			silenceNTUpdate <<- 0
+# 		}
+# 	})
+# 	
+# 	observeEvent(list(input$Seq, vals$render > 0), {
+# 		updateValsItem('seq', {
+# 			temp <- s2c(input$Seq)
+# 			temp[temp %in% c('a','g','t','c','A','G','T','C')]
+# 			if(input$Seq != paste(temp, collapse=''))
+# 			{
+# 				warning('Non A, G, T, C, a, g, t, c, characters found. Repairing sequence')
+# 				if(vals$seq != temp)
+# 				{
+# 					vals$seq <- temp
+# 				}
+# 				if(input$Seq == '')
+# 				{
+# 					updateTextAreaInput(session, inputId='Seq', value=paste(temp, collapse=''))
+# 				}
+# 			}
+# 			# print(temp)
+# 			temp
+# 		}, vals)
+# 	})
+# 	
+# 	observeEvent(getInputs(sensePrimerNames, 'Check', input), {
+# 		do.call('req', lapply(getInputs(sensePrimerNames, 'Check', input), function(x){length(x)>0}))
+# 		lapply(sensePrimerNames, updateValsGroupItem, group='Check', input=input, vals)
+# 	})
+# 	
+# 	observeEvent(getInputs(sensePrimerNames, 'Start', input), {
+# 		do.call('req', getInputs(sensePrimerNames, 'Start', input))
+# 		lapply(sensePrimerNames, updateValsGroupItem, group='Start', input=input, vals)
+# 	})
+# 	
+# 	observeEvent(getInputs(sensePrimerNames, 'Len', input), {
+# 		do.call('req', getInputs(sensePrimerNames, 'Len', input))
+# 		lapply(sensePrimerNames, updateValsGroupItem, group='Len', input=input, vals)
+# 	})
+# 	
+# 	observeEvent(input$linker, {
+# 		req(input$linker)
+# 		updateValsItem('linker', input$linker, vals)
+# 	})
+# 	
+# 	# Watch all the inputs and create a ground truth stored version of everything
+# 	observeEvent(list(vals$seq, vals$polyT, vals$linker, getInputs(sensePrimerNames, 'NTs', input)), {
+# 		tempPNABc <- input$PNABc
+# 		do.call('req', getInputs(sensePrimerNames, 'NTs', input))
+# 		req(vals$seq, vals$polyT)
+# 		lapply(sensePrimerNames, updateValsGroupItem, group='NTs', input=input, vals=vals)
+# 		updateValsItem('F1c', revC(vals$NTs$F1, keepCase=T), vals, group='NTs')
+# 		updateValsItem('B2', revC(vals$NTs$B2c, keepCase=T), vals, group='NTs')
+# 		updateValsItem('B3', revC(vals$NTs$B3c, keepCase=T), vals, group='NTs')
+# 		updateValsItem('LF', revC(vals$NTs$LFc, keepCase=T), vals, group='NTs')
+# 		updateValsItem('LB', vals$NTs$LB, vals, group='NTs')
+# 		updateValsItem('FIP', {
+# 			paste(c(vals$NTs$F1c, rep(vals$linker, vals$polyT), vals$NTs$F2), collapse='')	
+# 		}, vals, group='NTs')
+# 		updateValsItem('BIP', {
+# 			paste(c(vals$NTs$B1c, rep(vals$linker, vals$polyT), vals$NTs$B2), collapse='')	
+# 		}, vals, group='NTs')
+# 		updateValsItem('DBF', paste(c(rep(vals$linker, vals$polyT), s2c(vals$NTs$F2), vals$seq[(getEndSetting('F2', vals)+1):(vals$Start$F1-1)]), collapse=''), vals, group='NTs')
+# 		updateValsItem('DBB', paste(c(vals$seq[(getEndSetting('B1c', vals)+1):(vals$Start$B2c-1)], s2c(vals$NTs$B2c), revC(rep(vals$linker, vals$polyT), keepCase=T)), collapse=''), vals, group='NTs')
+# 		updateValsItem('PNAF', {
+# 			# If the PNA straddles the start of F2
+# 			ifelse(vals$Start$PNAF < vals$Start$F2 && getEndSetting('PNAF', vals) >= vals$Start$F2, 
+# 					 paste(
+# 					 	{
+# 					 		# Paste together the upstream portion of FIP with the downstream portion of the PNAF
+# 					 		FIPN <- length(vals$NTs$FIP)
+# 					 		F2N <- vals$Len$F2
+# 					 		Offset <- vals$Start$F2-vals$Start$PNAF
+# 					 		if(getEndSetting('PNAF', vals) > getEndSetting('F2', vals))
+# 					 		{
+# 					 			warning('Having a PNAF longer than F2 is not supported yet.')
+# 					 			updateTextInput(session, 'PNAFNTs', vals$NTs$PNAF)
+# 					 			s2c(vals$NTs$PNAF) # Don't change anything
+# 					 		}
+# 					 		else
+# 					 		{
+# 					 			c(vals$NTs$FIP[(FIPN-F2N-Offset):(FIPN-F2N)], # Chunk from start of PNAF up to start of F2 in FIP
+# 					 			  vals$NTsPNAF[(Offset+1):vals$Len$PNAF]) # Remaining part of PNAF
+# 					 		}
+# 					 	}, 
+# 					 	collapse=''),
+# 					 vals$NTs$PNAF
+# 			)
+# 		}, vals, group='NTs')
+# 		updateValsItem('PNAB', {
+# 			# If the PNA straddles the end of B2c
+# 			ifelse(vals$Start$PNABc < getEndSetting('B2c', vals) && getEndSetting('PNABc', vals) >= getEndSetting('B2c', vals), 
+# 					 paste(
+# 					 	{
+# 					 		# Paste together the upstream portion of FIP with the downstream portion of the PNAF
+# 					 		BIPN <- length(vals$NTs$BIP)
+# 					 		B2cN <- vals$Len$B2c
+# 					 		Offset <- getEndSetting('PNABc', vals)-getEndSetting('B2c', vals)
+# 					 		if(vals$Start$PNABc < vals$Start$B2c)
+# 					 		{
+# 					 			stop('Having a PNAB longer than B2 is not supported yet.')
+# 					 			# Reset the source PNABc value to what it was before this observed event
+# 					 			vals$NTs$PNABc <- tempPNABc
+# 					 			# Reset the input to the same value
+# 					 			updateTextInput(session, 'PNABcNTs', tempPNABc)
+# 					 			s2c(vals$NTs$PNAB) # Don't change anything by returning the same value
+# 					 		}
+# 					 		else
+# 					 		{
+# 					 			c(vals$NTs$BIP[(BIPN-B2cN-Offset):(BIPN-B2cN)], # Chunk from end of PNABc up to end of B2c in BIP
+# 					 			  revC(vals$NTs$PNABc, keepCase=T)[1:(vals$Len$PNABc-Offset)], keepCase=T) # Remaining (i.e., beginning) part of revC(PNABc)
+# 					 		}
+# 					 	}, 
+# 					 	collapse=''),
+# 					 revC(vals$NTs$PNABc, keepCase=T))
+# 		}, vals, group='NTs')
+# 		updateValsItem('DBAll', {
+# 			paste(c(vals$NTs$F1c, rep(vals$linker, input$polyT), vals$seq[vals$Start$F2:getEndSetting('B2c', vals)], rep(vals$linker, input$polyT), revC(vals$NTs$B1c, keepCase=T)), collapse='')
+# 		}, vals)
+# 		updateValsItem('DBStart', vals$Start$F2-vals$polyT-vals$Len$F1, vals)
+# 		updateValsItem('DBEnd', (vals$Start$B2c + vals$Len$B2c - 1)+vals$polyT+vals$Len$B1c, vals)
+# 	})
+# 	
+# 	observeEvent(getInputs(sensePrimerNames, 'Check', input), {
+# 		do.call('req', getInputs(sensePrimerNames, 'Check', input))
+# 		lapply(sensePrimerNames, updateValsGroupItem, group='Check', input=input, vals)
+# 	})
+# 	
+# 	observeEvent(input$polyT, {
+# 		updateValsItem('polyT', input$polyT, vals)
+# 	})
+# 	
+# 	observeEvent(list(vals$Check, vals$NTs), {
+# 		# Highlight output
+# 		# print(paste("Marking ", controlId, ": ", input[[paste0(controlId, "NTs")]]))
+# 		
+# 		req(!is.null(vals$seq), !is.null(vals$Check), length(vals$Check) > 0)
+# 		my_marker <- marker$new("#text-to-mark")
+# 		my_marker$unmark()
+# 		if(input$F3Check){ my_marker$mark(input[[paste0("F3", "NTs")]], element=paste0("markF3")) }
+# 		if(input$F2Check){ my_marker$mark(input[[paste0("F2", "NTs")]], element=paste0("markF2")) }
+# 		if(input$LFcCheck){ my_marker$mark(input[[paste0("LFc", "NTs")]], element=paste0("markLFc")) }
+# 		if(input$F1Check){ my_marker$mark(input[[paste0("F1", "NTs")]], element=paste0("markF1")) }
+# 		if(input$B1cCheck){ my_marker$mark(input[[paste0("B1c", "NTs")]], element=paste0("markB1c")) }
+# 		if(input$LBCheck){ my_marker$mark(input[[paste0("LB", "NTs")]], element=paste0("markLB")) }
+# 		if(input$B2cCheck){ my_marker$mark(input[[paste0("B2c", "NTs")]], element=paste0("markB2c")) }
+# 		if(input$B3cCheck){ my_marker$mark(input[[paste0("B3c", "NTs")]], element=paste0("markB3c")) }
+# 		if(input$PNAFCheck){ my_marker$mark(input[[paste0("PNAF", "NTs")]], element=paste0("markPNAF")) }
+# 		if(input$PNABcCheck){ my_marker$mark(input[[paste0("PNABc", "NTs")]], element=paste0("markPNABc")) }
+# 	}, ignoreInit = F)
+# 	
+# 	observeEvent(input$stabilityN, {
+# 		updateValsItem('stabilityN', input$stabilityN, vals)	
+# 	})
+# 	
+# 	# Now feed the ground truth out to inputs as necessary (if value in values in vals already matches, no additional triggers will setoff)
+# 	# Feed NT values if Start input values change
+# 	observeEvent(vals$Start, {
+# 		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$Start[[x]])})))
+# 		if(silenceStartUpdate == 0)
+# 		{
+# 			silenceNTUpdate <<- silenceNTUpdate + 1
+# 			ntUpdated <- FALSE
+# 			for(controlId in sensePrimerNames)
+# 			{
+# 				bpStart <- vals$Start[[controlId]]
+# 				bpEnd <- (vals$Start[[controlId]]+vals$Len[[controlId]]-1)
+# 				if(length(bpStart) != 1)
+# 				{
+# 					browser()
+# 				}
+# 				bp <- seq(from=bpStart, to=bpEnd)
+# 				temp <- paste(vals$seq[bp], collapse='')
+# 				if(vals$NTs[[controlId]] != temp) # && silenceNTUpdate == 0)
+# 				{
+# 					# print(vals$render)
+# 					ntUpdated <- TRUE
+# 					print(paste("Updating NTs from Start:", silenceNTUpdate))
+# 					updateTextInput(session, paste0(controlId, 'NTs'), value=temp)
+# 				}
+# 			}
+# 			if(!ntUpdated){silenceNTUpdate <<- silenceNTUpdate - 1}
+# 		}
+# 		else if(silenceStartUpdate > 0)
+# 		{
+# 			silenceStartUpdate <<- silenceStartUpdate - 1
+# 			print(paste("Silencing Start Update:", silenceStartUpdate))
+# 		}
+# 	})
+# 	
+# 	# Feed NT values if Len input values change
+# 	observeEvent(vals$Len, {
+# 		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$Len[[x]])})))
+# 		if(silenceLenUpdate == 0)
+# 		{
+# 			silenceNTUpdate <<- silenceNTUpdate + 1
+# 			ntUpdated <- FALSE
+# 			for(controlId in sensePrimerNames)
+# 			{
+# 				bpStart <- vals$Start[[controlId]]
+# 				bpEnd <- (vals$Start[[controlId]]+vals$Len[[controlId]]-1)
+# 				if(length(bpStart) != 1)
+# 				{
+# 					browser()
+# 				}
+# 				bp <- seq(from=bpStart, to=bpEnd)
+# 				temp <- paste(vals$seq[bp], collapse='')
+# 				if(vals$NTs[[controlId]] != temp) # && silenceNTUpdate == 0)
+# 				{
+# 					ntUpdated <- TRUE
+# 					print(paste("Updating NTs from Len:", silenceNTUpdate))
+# 					updateTextInput(session, paste0(controlId, 'NTs'), value=temp)
+# 				}
+# 			}
+# 			if(!ntUpdated){silenceNTUpdate <<- silenceNTUpdate - 1}
+# 		}
+# 		else if(silenceLenUpdate > 0)
+# 		{
+# 			silenceLenUpdate <<- silenceLenUpdate - 1
+# 			print(paste("Silencing Len Update:", silenceLenUpdate))
+# 		}
+# 	})
+# 	
+# 	# Feed Start and Len input values if NT values change
+# 	observeEvent(vals$NTs, {
+# 		req(all(sapply(sensePrimerNames, function(x){!is.null(vals$NTs[[x]])})))
+# 		if(silenceNTUpdate > 0)
+# 		{
+# 			silenceNTUpdate <<- silenceNTUpdate - 1
+# 			print(paste("Silencing NT Update:", silenceNTUpdate))
+# 		}
+# 		else
+# 		{
+# 			silenceStartUpdate <<- silenceStartUpdate + 1
+# 			silenceLenUpdate <<- silenceLenUpdate + 1
+# 			startUpdated <- FALSE
+# 			lenUpdated <- FALSE
+# 			for(controlId in sensePrimerNames)
+# 			{
+# 				temp <- vals$NTs[[controlId]]
+# 				start <- getStartFromSeq(temp, paste(vals$seq, collapse=''))
+# 				len <- calcLen(temp)
+# 				if(vals$Start[[controlId]] != start) # && silenceStartUpdate == 0)
+# 				{
+# 					startUpdated <- TRUE
+# 					print(paste("Update Start UI from NTs change:", silenceStartUpdate))
+# 					updateNumericInput(session, paste0(controlId, 'Start'), value=start)
+# 				}
+# 				if(vals$Len[[controlId]] != len) # && silenceLenUpdate == 0)
+# 				{
+# 					lenUpdated <- TRUE
+# 					print(paste("Update Len UI from NTs change", silenceLenUpdate))
+# 					updateNumericInput(session, paste0(controlId, 'Len'), value=len)
+# 				}
+# 			}
+# 			if(!startUpdated){
+# 				# browser()
+# 				silenceStartUpdate <<- silenceStartUpdate - 1
+# 			}
+# 			if(!lenUpdated){
+# 				# browser()
+# 				silenceLenUpdate <<- silenceLenUpdate - 1
+# 			}
+# 		}
+# 	})
+# 	
+# 	
+# 	
+# 	
+# 	
+# 	observeEvent(list(vals$seq, vals$NTs), {
+# 		
+# 		output$GCPlot <- renderPlot({
+# 			GCPlot()
+# 		})
+# 		
+# 		output$HairpinPlot <- renderPlot({
+# 			HairpinPlot()
+# 		})
+# 		
+# 		output$EnergyPlot <- renderPlot({
+# 			EnergiesPlot()
+# 		})
+# 		
+# 		output$TmPlot <- renderPlot({
+# 			TmPlot()
+# 		})
+# 	})
+# 	
+# 	observeEvent(input$revCTool,{
+# 		req(input$revCTool != '')
+# 		output$revCOutput <- renderText({
+# 			revc <- revC(input$revCTool, keepCase=T)
+# 			session$sendCustomMessage("txt", revc)
+# 			paste('COPIED:', revc)
+# 		})
+# 	})
+# 	
+# 	output$ResultsTable <- renderTable({
+# 		req(vals$results)
+# 		vals$results
+# 	})
+# 	
+# 	observeEvent(input$importButton, {
+# 		x <- read.clipboard(os=Sys.info()['sysname'], header=F)
+# 		x <- x[x[[1]] %in% c('F1','F1c','F2','F2c','F3','F3c','B1','B1c','B2','B2c','B3','B3c','PNAF','PNAFc','PNAB','PNABc','LF','LFc','LB','LBc')]
+# 		if(nrow(x) == 0)
+# 		{
+# 			txt <- "First column should contain the name of the primer type (e.g., F3 etc). Re-copy primer information."
+# 			warning(txt)
+# 			output$revCOutput <- renderText(txt)
+# 		}
+# 		else if(ncol(x) != 3)
+# 		{
+# 			txt <- "Please copy just the primer name column and the start and end position columns (3 columns total). Re-copy primer information."
+# 			warning(txt)
+# 			output$revCOutput <- renderText(txt)
+# 		}
+# 		else
+# 		{
+# 			primerColName <- names(x)[1]
+# 			startColName <- names(x)[2]
+# 			endColName <- names(x)[3]
+# 			x[, isRC:=grepl('[c]', get(primerColName))]
+# 			x[, isSense:=get(primerColName) %in% c('F1','F1c','F2','F2c','F3','F3c','PNAF','PNAFc','LB','LBc')]
+# 			# x[, seq:=paste(vars$seq[get(startColName):get(endColName)], collapse=''), by=c(primerColName)]
+# 			# x[isRC & isSense, seq:=revC(seq, keepCase=T), by=c(primerColName)]
+# 			x[isRC & isSense, c(primerColName):=gsub('[c]', '', get(primerColName))]
+# 			# x[!isRC & !isSense, seq:=revC(seq, keepCase=T), by=c(primerColName)]
+# 			x[!isRC & !isSense, c(primerColName):=paste(get(primerColName), 'c', sep='')]
+# 			# browser()
+# 			x[get(primerColName) %in% c('F1','F2','F3','B1c','B2c','B3c','PNAF','PNABc','LFc','LB')]
+# 			for(i in 1:nrow(x))
+# 			{
+# 				startVal <- x[i][[startColName]]
+# 				lenVal <- x[i][[endColName]]-x[i][[startColName]]+1
+# 				NTVal <- paste(vals$seq[seq(startVal, startVal + lenVal -1)], collapse='')
+# 				if(vals$Start[[x[i][[primerColName]]]] != startVal) #updateValsItem(x[i][[primerColName]], startVal, vals, group='Start'))
+# 				{
+# 					# Only mark down 1 update for an import event instead one for each change made.
+# 					if(silenceStartUpdate == 0){silenceStartUpdate <<- silenceStartUpdate + 1}
+# 					updateNumericInput(session, paste(x[i][[primerColName]], 'Start', sep=''), value=startVal)
+# 				}
+# 				if(vals$Len[[x[i][[primerColName]]]] != lenVal) # updateValsItem(x[i][[primerColName]], lenVal, vals, group='Len'))
+# 				{
+# 					# Only mark down 1 update for an import event instead one for each change made.
+# 					if(silenceLenUpdate == 0){silenceLenUpdate <<- silenceLenUpdate + 1}
+# 					updateNumericInput(session, paste(x[i][[primerColName]], 'Len', sep=''), value=lenVal)
+# 				}
+# 				if(vals$NTs[[x[i][[primerColName]]]] != NTVal) # updateValsItem(x[i][[primerColName]], NTVal, vals, group='NTs'))
+# 				{
+# 					# Only mark down 1 update for an import event instead one for each change made.
+# 					if(silenceNTUpdate == 0){silenceNTUpdate <<- silenceNTUpdate + 1}
+# 					updateTextInput(session, paste(x[i][[primerColName]], 'NTs', sep=''), value=NTVal)
+# 				}
+# 			}
+# 			output$revCOutput <- renderText("Clipboard imported.")
+# 		}
+# 	})
+# 	
+# 	observeEvent(input$importSettings, {
+# 		# browser()
+# 		load(input$importSettings$datapath)
+# 		for(item in names(settings))
+# 		{
+# 			print(paste("Importing:", item))
+# 			vals[[item]] <- settings[[item]]
+# 		}
+# 		updateTextAreaInput(session, 'Seq', value=paste(vals$seq, collapse=''))
+# 		for(name in sensePrimerNames)
+# 		{
+# 			updateNumericInput(session, inputId=paste(name, 'Start', sep=''), value=vals$Start[[name]])
+# 			updateNumericInput(session, inputId=paste(name, 'Len', sep=''), value=vals$Len[[name]])
+# 		}
+# 	})
+# 	
+# 	output$download <- downloadHandler(
+# 		# filename = function(){paste(input$downloadName, '.csv')},
+# 		# content = function(fname){
+# 		# 	fwrite(vals$results, fname)
+# 		# }
+# 		
+# 		filename = function(){paste(input$downloadName, '.zip')},
+# 		content = function(fname){
+# 			
+# 			# Set temporary working directory
+# 			owd <- setwd( tempdir())
+# 			print(getwd())
+# 			on.exit( setwd( owd))
+# 			
+# 			temp <- list(GCPlot=GCPlot(), HairpinPlot=HairpinPlot(), EnergiesPlot=EnergiesPlot(), TmPlot=TmPlot())
+# 			temp <- temp[sapply(temp, isTruthy)]
+# 			lapply(names(temp), function(x){
+# 				ggsave(paste(x, '.png', sep=''), plot = temp[[x]], device = "png", width = 18, height = 6, dpi = 150, units = "in")
+# 			})
+# 			
+# 			# print(vals$results)
+# 			fwrite(vals$results, 'SummaryTable.csv')
+# 			
+# 			# Save the inputs so they can be reloaded later if desired.
+# 			settings <- list()
+# 			for(item in names(vals))
+# 			{
+# 				settings[[item]] <- vals[[item]]
+# 			}
+# 			save(settings, file='Settings.RData')
+# 			
+# 			# Zip them up
+# 			# print(fname)
+# 			return(zip( zipfile=fname, files=c('Settings.RData', 'SummaryTable.csv', paste(names(temp), '.png', sep=''))))
+# 		},
+# 		contentType = "application/zip"
+# 	)
+# }
 
 # # Run the application 
 # shinyApp(ui = ui, server = server)

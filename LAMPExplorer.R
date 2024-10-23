@@ -91,9 +91,8 @@ ui <- fluidPage(
 						 				  'atcgaccacttcggcaaccgccgcctgcgtacggtcggcgagctgatccaaaaccagatccgggtcggcatgtcgcggatggagcgggtggtccgggagcggatgaccacccaggacgtggaggcgatcacaccgcagacgttgatcaacatccggccggtggtcgccgcgatcaaggagttcttcggcaccagccagctgagccaattcatgGACcagaacaacccgctgtcggggttgaccCACaagcgccgactgTCGgcgctggggcccggcggtctgtcacgtgagcgtgccgggctggaggtccgcgacgtgcacccgtcgcactacggccggatgtgcccgatcgaaacccctgaggggcccaacatcggtctgatcggctcgctgtcggtgtacgcgcgggtcaacccgttcgggttcatcgaaacgccgtaccgcaaggtggtcgacggcgtggttagcgacgagatcgtgtacctgaccgccgacgagga'
 						 ),
 						 hr(),
-						 fluidPage(fluidRow(column(4, selectInput("linker", "Linker NT", choices=c('a','g','t','c'), selected='a')),
-						 						 column(4, numericInput("polyT", "Linker Length", 3)),
-						 						 column(4, numericInput("stabilityN", "End Stability Bp's:", 5))),
+						 fluidPage(fluidRow(column(6, textInput("FIPlinker", "FIP Linker", value='ttt')),
+						 						 column(6, textInput("BIPlinker", "BIP Linker", value='ttt'))),
 						 			 textInput('revCTool', 'Rev. Compl. Tool', placeholder='Auto-copy RevC to Clipboard'),
 						 			 textOutput('revCOutput'),
 						 			 actionButton("importButton", "Import Clipboard")),
@@ -351,16 +350,21 @@ server <- function(input, output, session) {
 		lapply(sensePrimerNames, updateSettingsGroupItem, group='Len', input=input, settings)
 	})
 	
-	observeEvent(input$linker, {
-		req(input$linker)
-		updateSettingsItem('linker', input$linker, settings)
+	observeEvent(input$FIPlinker, {
+		req(input$FIPlinker)
+		updateSettingsItem('FIPlinker', input$FIPlinker, settings)
+	})
+	
+	observeEvent(input$BIPlinker, {
+		req(input$BIPlinker)
+		updateSettingsItem('BIPlinker', input$BIPlinker, settings)
 	})
 	
 	# Watch all the inputs and create a ground truth stored version of everything
-	observeEvent(list(settings$seq, settings$polyT, settings$linker, getInputs(sensePrimerNames, 'NTs', input)), {# getInputs(sensePrimerNames, 'NTs', input)), {
+	observeEvent(list(settings$seq, settings$FIPlinker, settings$BIPlinker, getInputs(sensePrimerNames, 'NTs', input)), {# getInputs(sensePrimerNames, 'NTs', input)), {
 		tempPNABc <- input$PNABc
 		do.call('req', getInputs(sensePrimerNames, 'NTs', input))
-		req(settings$seq, settings$polyT)
+		req(settings$seq, settings$FIPlinker, settings$BIPlinker)
 		lapply(sensePrimerNames, updateSettingsGroupItem, group='NTs', input=input, settings=settings)
 		updateSettingsItem('F1c', revC(settings$NTs$F1, keepCase=T), settings, group='NTs')
 		updateSettingsItem('B2', revC(settings$NTs$B2c, keepCase=T), settings, group='NTs')
@@ -368,13 +372,13 @@ server <- function(input, output, session) {
 		updateSettingsItem('LF', revC(settings$NTs$LFc, keepCase=T), settings, group='NTs')
 		updateSettingsItem('LB', settings$NTs$LB, settings, group='NTs')
 		updateSettingsItem('FIP', {
-			paste(c(settings$NTs$F1c, rep(settings$linker, settings$polyT), settings$NTs$F2), collapse='')	
+			paste(c(settings$NTs$F1c, settings$FIPlinker, settings$NTs$F2), collapse='')	
 		}, settings, group='NTs')
 		updateSettingsItem('BIP', {
-			paste(c(settings$NTs$B1c, rep(settings$linker, settings$polyT), settings$NTs$B2), collapse='')	
+			paste(c(settings$NTs$B1c, settings$BIPlinker, settings$NTs$B2), collapse='')	
 		}, settings, group='NTs')
-		updateSettingsItem('DBF', paste(c(rep(settings$linker, settings$polyT), s2c(settings$NTs$F2), settings$seq[(getEndSetting('F2', settings)+1):(settings$Start$F1-1)]), collapse=''), settings, group='NTs')
-		updateSettingsItem('DBB', paste(c(settings$seq[(getEndSetting('B1c', settings)+1):(settings$Start$B2c-1)], s2c(settings$NTs$B2c), revC(rep(settings$linker, settings$polyT), keepCase=T)), collapse=''), settings, group='NTs')
+		updateSettingsItem('DBF', paste(c(settings$FIPlinker, s2c(settings$NTs$F2), settings$seq[(getEndSetting('F2', settings)+1):(settings$Start$F1-1)]), collapse=''), settings, group='NTs')
+		updateSettingsItem('DBB', paste(c(settings$seq[(getEndSetting('B1c', settings)+1):(settings$Start$B2c-1)], s2c(settings$NTs$B2c), revC(settings$BIPlinker, keepCase=T)), collapse=''), settings, group='NTs')
 		updateSettingsItem('PNAF', {
 			# If the PNA straddles the start of F2
 			ifelse(settings$Start$PNAF < settings$Start$F2 && getEndSetting('PNAF', settings) >= settings$Start$F2, 
@@ -428,19 +432,15 @@ server <- function(input, output, session) {
 					 revC(settings$NTs$PNABc, keepCase=T))
 		}, settings, group='NTs')
 		updateSettingsItem('DBAll', {
-			paste(c(settings$NTs$F1c, rep(settings$linker, input$polyT), settings$seq[settings$Start$F2:getEndSetting('B2c', settings)], rep(settings$linker, input$polyT), revC(settings$NTs$B1c, keepCase=T)), collapse='')
+			paste(c(settings$NTs$F1c, settings$FIPlinker, settings$seq[settings$Start$F2:getEndSetting('B2c', settings)], revC(settings$BIPlinker, keepCase=T), revC(settings$NTs$B1c, keepCase=T)), collapse='')
 		}, settings)
-		updateSettingsItem('DBStart', settings$Start$F2-settings$polyT-settings$Len$F1, settings)
-		updateSettingsItem('DBEnd', (settings$Start$B2c + settings$Len$B2c - 1)+settings$polyT+settings$Len$B1c, settings)
+		updateSettingsItem('DBStart', settings$Start$F2-calcLen(settings$FIPlinker)-settings$Len$F1, settings)
+		updateSettingsItem('DBEnd', (settings$Start$B2c + settings$Len$B2c - 1)+calcLen(settings$BIPlinker)+settings$Len$B1c, settings)
 	})
 	
 	observeEvent(getInputs(sensePrimerNames, 'Check', input), {
 		do.call('req', getInputs(sensePrimerNames, 'Check', input))
 		lapply(sensePrimerNames, updateSettingsGroupItem, group='Check', input=input, settings)
-	})
-	
-	observeEvent(input$polyT, {
-		updateSettingsItem('polyT', input$polyT, settings)
 	})
 	
 	observeEvent(list(settings$Check, settings$NTs), {
@@ -603,7 +603,7 @@ server <- function(input, output, session) {
 			getEndSetting('PNABc', settings) <= length(settings$seq)
 	})
 	
-	observeEvent(list(settings$NTs, settings$stabilityN, settings$Check), {
+	observeEvent(list(settings$NTs, settings$Check), {
 		req(settings$seq, allLegal(), all(as.logical(settings$NTs != '')))
 		tables <- calcResultsTables(settings)
 		settings$results <- tables$results
@@ -743,6 +743,16 @@ server <- function(input, output, session) {
 			print(paste("Importing:", item))
 			settings[[item]] <- settingsToSave[[item]]
 		}
+		if(is.null(settings$FIPlinker))
+		{
+			settings$FIPlinker <- paste(rep('t',3), collapse='')
+		}
+		if(is.null(settings$BIPlinker))
+		{
+			settings$BIPlinker <- paste(rep('t',3), collapse='')
+		}
+		updateTextInput(session, inputId='FIPlinker', value=settings$FIPlinker)
+		updateTextInput(session, inputId='BIPlinker', value=settings$BIPlinker)
 		updateTextAreaInput(session, 'Seq', value=paste(settings$seq, collapse=''))
 		for(name in sensePrimerNames)
 		{
