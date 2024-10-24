@@ -737,9 +737,9 @@ plotEnergies <- function(results)
 		geom_col() +
 		geom_col(data=results[!is.na(value) & variable != 'KeyEndStability']) +
 		scale_fill_manual(values = hue_pal()(3)[c(3,1,2)]) + 
-		geom_hline(yintercept=c(4,-4)) +
+		geom_hline(yintercept=c(4,-2)) +
 		labs(x='Sequence', y='Energy [kJ/mol]') +
-		scale_y_continuous(limits=c(-25,10),oob = rescale_none) +
+		scale_y_continuous(limits=c(-15,10),oob = rescale_none) +
 		theme(axis.text=element_text(size=rel(2.0)),
 				axis.title=element_text(size=rel(2.0)),
 				legend.text=element_text(size=rel(2.0)),
