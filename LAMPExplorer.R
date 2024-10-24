@@ -36,8 +36,8 @@ sourceGitHubFile <- function(user, repo, branch='main', file)
 	source(destfile)
 }
 
-sourceGitHubFile('Salus-Discovery','R-LampPrimerAnalyzer','main','LAMPUtils.R')
-# source('~/Documents/GitHub/R-LampPrimerAnalyzer/LAMPUtils.R')
+# sourceGitHubFile('Salus-Discovery','R-LampPrimerAnalyzer','main','LAMPUtils.R')
+source('~/Documents/GitHub/R-LampPrimerAnalyzer/LAMPUtils.R')
 
 ##### Calculated Constants #####
 
