@@ -47,7 +47,7 @@ allPrimerNames <- c('F3','F3c','F2','F2c','F1','F1c','B1','B1c','B2','B2c','B3',
 # F1c-F2 Space: 40-60
 # F3-F2 Space: 0-20
 # F1c-B1c Space: 0-100
-defaultTemps <- list(F3=61, F2=61, B3c=61, B2c=61, LFc=61, LB=61, PNAF=61, PNABc=61, F1=66, B1c=66)
+defaultTemps <- list(F3=61, F3c=61, F2=61, F2c=61, B3=61, B3c=61, B2=61, B2c=61, LF=61, LFc=61, LB=61, LBc=61, PNAF=61, PNAFc=61, PNAB=61, PNABc=61, F1=66, F1c=66, B1=66, B1c=66)
 
 # Settings to match PrimerExplorerV5 (Eiken) melt temperature and end stability calculations and mFold deltaG at Na=50, temp=65
 paramsDNA <- list(
@@ -161,7 +161,6 @@ revC <- function(x, keepCase=F)
 {
 	if(any(is.na(x)) || any(grepl( '[^AGTCagtcNn]', x)))
 	{
-		browser()
 		stop("Found a non coding character in revC.")
 	}
 	if(length(x) == 1)
@@ -787,13 +786,21 @@ getPossibleWindowsFromBounds <- function(primer, primerList, TmDelta=1, bMin, bM
 {
 	ret <- data.table(Primer=primer, primerList[abs(Tm-TmTarget) <= TmDelta & Start>=bMin & End<=bMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
 	ret[, c(idName):=1:.N]
+	if(primer %in% c('F1c','F2c','F3c','B1','B2','B3','LF','LBc','PNAFc','PNAB'))
+	{
+		ret[, Seq:=revC(Seq, keepCase=T), by=c(idName)]
+	}
 	return(ret[!is.na(Start)])
 }
 
 getPossibleWindowsOverlappingIndex <- function(primer, primerList, TmDelta=1, Index, TmOffset=0, TmTarget=defaultTemps[[primer]], HmdLimit=-7, HpLimit=-1, idName='primerId')
-{d
+{
 	ret <- data.table(Primer=primer, primerList[abs(Tm-TmTarget) <= TmDelta & Start<=Index & End>=Index & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
 	ret[, c(idName):=1:.N]
+	if(primer %in% c('F1c','F2c','F3c','B1','B2','B3','LF','LBc','PNAFc','PNAB'))
+	{
+		ret[, Seq:=revC(Seq, keepCase=T), by=c(idName)]
+	}
 	return(ret[!is.na(Start)])
 }
 
@@ -801,6 +808,10 @@ getPossibleWindowsFromStart <- function(primer, primerList, TmDelta=1, startMin,
 {
 	ret <- data.table(Primer=primer, primerList[abs(Tm-TmTarget) <= TmDelta & Start>=startMin & Start<=startMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
 	ret[, c(idName):=1:.N]
+	if(primer %in% c('F1c','F2c','F3c','B1','B2','B3','LF','LBc','PNAFc','PNAB'))
+	{
+		ret[, Seq:=revC(Seq, keepCase=T), by=c(idName)]
+	}
 	return(ret[!is.na(Start)])
 }
 
@@ -808,6 +819,10 @@ getPossibleWindowsFromEnd <- function(primer, primerList, TmDelta=1, endMin, end
 {
 	ret <- data.table(Primer=primer, primerList[abs(Tm-TmTarget) <= TmDelta & End>=endMin & End<=endMax & HmdDeltaG>=HmdLimit & HpDeltaG >= HpLimit])
 	ret[, c(idName):=1:.N]
+	if(primer %in% c('F1c','F2c','F3c','B1','B2','B3','LF','LBc','PNAFc','PNAB'))
+	{
+		ret[, Seq:=revC(Seq, keepCase=T), by=c(idName)]
+	}
 	return(ret[!is.na(Start)])
 }
 
@@ -821,7 +836,7 @@ getPossibleWindowsFromEnd <- function(primer, primerList, TmDelta=1, endMin, end
 
 tryPrimersWithPrimerSet <- function(primers, primerSet)
 {
-	primers <- primers[, data.table(rbindlist(list(primerSet[, names(primerSet) != 'primerId', with=F], .SD), use.names=T)), by='primerId']
+	primers <- primers[, data.table(rbindlist(list(primerSet[, names(primerSet) != 'primerId', with=F], .SD), use.names=T, fill=T)), by='primerId']
 	return(primers[])
 }
 
@@ -1071,8 +1086,10 @@ calcResultsTables <- function(settings)
 	ret2[, Primer:=factor(Primer, levels=finalPrimerNames)]
 	
 	# Data for Tm plot
-	ret3 <- ret[, c('Primer','Tm')]
-	ret3[, Tm:=suppressWarnings(as.numeric(Tm))]
+	ret3 <- ret[, c('Primer','Tm','HpTm')]
+	ret3[Primer %in% c('DBB','DBF'), Tm:=HpTm]
+	ret3[, HpTm:=NULL]
+	# ret3[, Tm:=suppressWarnings(as.numeric(Tm))]
 	primerColors <- getAllPrimerColors()
 	setkey(ret3, Primer)
 	setkey(primerColors, Primer)
