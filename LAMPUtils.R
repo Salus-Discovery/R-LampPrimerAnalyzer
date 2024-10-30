@@ -548,7 +548,7 @@ getDBHps <- function(primerSet, width=25)
 	DBFSeqCircHp[, HpType:='Circ']
 	DBFTable <- rbindlist(list(DBFSeqCircHp, DBFSeqLinHp))
 	DBFI <- which.min(DBFTable$HpDeltaG)
-	DBFTable[HpStruct != '', HpStruct:=paste(HpType, ':', bp-width%/%2, '-', bp+width%/%2, ':', HpStruct, '\n', getHpCamelCase(Seq, HpStruct), sep=''), by=c('bp','HpType')]
+	DBFTable[HpStruct != '', HpStruct:=paste(HpType, ':', bp-width%/%2, '-', bp+width%/%2, ':', HpStruct, sep=''), by=c('bp','HpType')]
 	ret <- copy(primerSet)
 	if(length(DBFI) >= 1)
 	{
